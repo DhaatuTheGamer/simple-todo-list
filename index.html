@@ -120,6 +120,16 @@
         /* --- Input field --- */
         #todoInput { background-color: var(--bg-input); transition: border-color 0.2s ease, box-shadow 0.2s ease; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
         #todoInput:focus-visible { border-color: var(--border-focus); box-shadow: inset 0 1px 2px rgba(0,0,0,0.05), 0 0 0 2px var(--border-focus); outline: none; }
+        #todoDueDateInput, #todoPriorityInput, #searchInput, #sortSelect {
+             background-color: var(--bg-input);
+             color: var(--text-primary);
+             border-color: var(--border-secondary);
+        }
+        #todoDueDateInput:focus-visible, #todoPriorityInput:focus-visible, #searchInput:focus-visible, #sortSelect:focus-visible {
+            border-color: var(--border-focus);
+            box-shadow: 0 0 0 1px var(--border-focus);
+        }
+
 
         /* --- Task Item --- */
         #todoList { border: 1px solid var(--border-primary); border-radius: 0.75rem; overflow: hidden; }
@@ -152,11 +162,26 @@
         #todoList li.completed .checkbox-icon svg { transform: scale(1); opacity: 1; }
 
         /* --- Edit Input --- */
-        .edit-input { 
-            flex-grow: 1; border: none; padding: 0; margin: 0 0.75rem; font-weight: 500; 
-            color: var(--text-primary); background-color: transparent; outline: none; 
-            border-bottom: 2px solid var(--border-focus); cursor: text; line-height: inherit; height: auto; 
+        .edit-input { /* Text input for editing */
+            flex-grow: 1; border: 1px solid var(--border-secondary); border-radius: 0.375rem; padding: 0.5rem; margin: 0.25rem 0.25rem 0.25rem 0; /* Adjusted margin */ 
+            color: var(--text-primary); background-color: var(--bg-input); outline: none; 
+            line-height: inherit; height: auto; 
         }
+        .edit-due-date-input, .edit-priority-select { /* Specific styles for date/priority in edit mode */
+            border: 1px solid var(--border-secondary); border-radius: 0.375rem; padding: 0.5rem; margin: 0.25rem; 
+            color: var(--text-primary); background-color: var(--bg-input); outline: none; 
+            line-height: inherit; height: auto; font-size: 0.875rem; /* Smaller font for these inputs */
+            flex-grow: 0; /* Don't let date/priority inputs grow as much as text */
+            min-width: 120px; /* Ensure they have some base width */
+        }
+        .edit-input:focus-visible, .edit-due-date-input:focus-visible, .edit-priority-select:focus-visible {
+            border-color: var(--border-focus); box-shadow: 0 0 0 1px var(--border-focus); /* Subtle focus */
+        }
+        /* Container for edit inputs within the list item */
+        .edit-controls-wrapper {
+            display: flex; flex-wrap: wrap; align-items: center; width: 100%; padding-left: 2.5rem; /* Align with where text usually starts */
+        }
+
 
         /* --- Checkbox --- */
         .checkbox-icon { width: 1.25rem; height: 1.25rem; border: 2px solid var(--border-secondary); border-radius: 50%; margin-right: 0.75rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease; }
@@ -170,6 +195,15 @@
         .star-btn:active { transform: scale(0.9); }
         #todoList li.starred .star-btn svg { fill: var(--icon-star-active); animation: starPulse 0.4s ease; }
         .star-btn:focus-visible { outline: 2px solid transparent; outline-offset: 2px; box-shadow: 0 0 0 2px var(--bg-tertiary), 0 0 0 4px var(--icon-star-active); }
+
+        /* --- Priority Indicators --- */
+        #todoList li.priority-low { border-left: 5px solid #22c55e; /* Tailwind green-500 */ }
+        #todoList li.priority-medium { border-left: 5px solid #f59e0b; /* Tailwind amber-500 */ }
+        #todoList li.priority-high { border-left: 5px solid #ef4444; /* Tailwind red-500 */ }
+        #todoList li.priority-low:hover { background-color: var(--bg-tertiary-hover); border-left-color: #16a34a; }
+        #todoList li.priority-medium:hover { background-color: var(--bg-tertiary-hover); border-left-color: #d97706; }
+        #todoList li.priority-high:hover { background-color: var(--bg-tertiary-hover); border-left-color: #dc2626; }
+
 
         /* --- Delete icon --- */
         .delete-btn { transition: transform 0.2s ease; }
@@ -254,11 +288,34 @@
             <h1 class="text-3xl font-bold mb-2 text-center text-main">My Todo List</h1>
             <p id="taskCount" class="text-center text-meta text-sm mb-6">Loading tasks...</p>
 
-            <div class="flex mb-8 shadow-sm rounded-lg">
-                <input type="text" id="todoInput" class="flex-grow border border-input rounded-l-lg p-3 text-main bg-input focus:outline-none focus-visible:border-focus focus-visible:ring-focus transition duration-150 placeholder-placeholder" placeholder="Add a new task..." aria-label="Add a new task">
-                <button id="addTodoBtn" class="btn btn-primary rounded-l-none px-5">Add</button>
+            <!-- Search and Sort Controls -->
+            <div class="flex flex-col md:flex-row justify-between items-center mb-4 gap-2">
+                <input type="search" id="searchInput" placeholder="Search tasks..." class="w-full md:w-3/5 border border-input rounded-lg p-2.5 text-sm text-main bg-input focus:outline-none focus-visible:border-focus focus-visible:ring-focus transition duration-150 placeholder-placeholder">
+                <select id="sortSelect" class="w-full md:w-2/5 border border-input rounded-lg p-2.5 text-sm text-main bg-input focus:outline-none focus-visible:border-focus focus-visible:ring-focus transition duration-150">
+                    <option value="default">Order: Default</option>
+                    <option value="dueDateAsc">Due Date (Oldest First)</option>
+                    <option value="dueDateDesc">Due Date (Newest First)</option>
+                    <option value="priorityDesc">Priority (High to Low)</option>
+                    <option value="priorityAsc">Priority (Low to High)</option>
+                    <option value="nameAZ">Name (A-Z)</option>
+                    <option value="nameZA">Name (Z-A)</option>
+                </select>
             </div>
-            <p id="inputError" class="text-red-500 text-sm -mt-4 mb-4 hidden">Task cannot be empty!</p>
+            
+            <!-- Add Task Form -->
+            <div class="mb-6"> <!-- Reduced bottom margin -->
+                <div class="flex flex-col sm:flex-row gap-1.5 shadow-sm rounded-lg"> <!-- Reduced gap -->
+                    <input type="text" id="todoInput" class="flex-grow border border-input rounded-lg sm:rounded-l-lg sm:rounded-r-none p-2.5 text-sm text-main bg-input focus:outline-none focus-visible:border-focus focus-visible:ring-focus transition duration-150 placeholder-placeholder" placeholder="Add a new task..." aria-label="Add a new task">
+                    <input type="date" id="todoDueDateInput" title="Due Date" class="border border-input rounded-lg sm:rounded-none p-2.5 text-xs text-main bg-input focus:outline-none focus-visible:border-focus focus-visible:ring-focus transition duration-150 w-full sm:w-auto" style="min-width: 130px;">
+                    <select id="todoPriorityInput" title="Priority" class="border border-input rounded-lg sm:rounded-none p-2.5 text-xs text-main bg-input focus:outline-none focus-visible:border-focus focus-visible:ring-focus transition duration-150 w-full sm:w-auto" style="min-width: 90px;">
+                        <option value="1">Low</option>
+                        <option value="2" selected>Medium</option>
+                        <option value="3">High</option>
+                    </select>
+                    <button id="addTodoBtn" class="btn btn-primary rounded-lg sm:rounded-r-lg sm:rounded-l-none px-4 py-2.5 w-full sm:w-auto text-sm">Add</button> <!-- Adjusted padding & text size -->
+                </div>
+            </div>
+            <p id="inputError" class="text-red-500 text-sm -mt-2 mb-4 hidden">Task cannot be empty!</p> <!-- Adjusted margin -->
             
             <div id="listContainer">
                 <ul id="todoList" class=""></ul>
@@ -319,10 +376,15 @@
         const clearConfirmationModal = document.getElementById('clearConfirmationModal');
         const confirmClearBtn = document.getElementById('confirmClearBtn');
         const cancelClearBtn = document.getElementById('cancelClearBtn');
+        // Search and Sort elements will be accessed here after HTML is added
+        // const searchInput = document.getElementById('searchInput'); 
+        // const sortSelect = document.getElementById('sortSelect');
 
         // --- App State ---
         let todoIdToDelete = null; 
         let currentFilter = 'all'; 
+        let currentSearchTerm = ''; // For search functionality
+        let currentSortOrder = 'default'; // For sorting functionality
         let isSidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true'; 
         let currentlyEditing = null; 
         let draggedItem = null; 
@@ -330,6 +392,16 @@
         // --- Event Listeners (Initial Setup) ---
         addTodoBtn.addEventListener('click', addTodo); 
         todoInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTodo(); else clearInputError(); }); 
+        
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+           searchInput.addEventListener('input', handleSearchInput);
+        }
+        const sortSelect = document.getElementById('sortSelect');
+        if (sortSelect) {
+           sortSelect.addEventListener('change', handleSortChange);
+        }
+
         todoList.addEventListener('click', handleListClick); 
         todoList.addEventListener('dblclick', handleListDoubleClick); 
         document.addEventListener('DOMContentLoaded', initializeApp); 
@@ -369,7 +441,20 @@
                 return; 
             }
             clearInputError(); 
-            const todo = { text: todoText, completed: false, id: Date.now(), starred: false };
+            const dueDateInput = document.getElementById('todoDueDateInput'); 
+            const dueDateValue = dueDateInput ? dueDateInput.value : null;
+
+            const priorityInput = document.getElementById('todoPriorityInput');
+            const priorityValue = priorityInput ? parseInt(priorityInput.value, 10) : 2; 
+
+            const todo = { 
+                text: todoText, 
+                completed: false, 
+                id: Date.now(), 
+                starred: false,
+                dueDate: dueDateValue || null, 
+                priority: isNaN(priorityValue) || ![1,2,3].includes(priorityValue) ? 2 : priorityValue 
+            };
             const todos = getTodosFromStorage();
             todos.unshift(todo); 
             saveTodosToStorage(todos);
@@ -379,8 +464,11 @@
                 newItem.classList.add('adding'); 
                 newItem.addEventListener('animationend', () => newItem.classList.remove('adding'), { once: true });
             }
-            applyFilter(); updateTaskCount(); updateClearButtonVisibility(); updateEmptyMessageVisibility(); 
-            todoInput.value = ''; todoInput.focus(); 
+            applyFiltersAndSearch(); updateTaskCount(); updateClearButtonVisibility(); 
+            todoInput.value = ''; 
+            if(dueDateInput) dueDateInput.value = ''; 
+            if(priorityInput) priorityInput.value = '2'; 
+            todoInput.focus(); 
         }
 
         function renderTodoItem(todo) {
@@ -389,9 +477,14 @@
             li.dataset.id = todo.id;
             li.dataset.starred = todo.starred;
             li.dataset.completed = todo.completed;
-            li.draggable = !todo.completed;
-            li.style.cursor = todo.completed ? 'default' : 'grab';
-            if (todo.completed) li.classList.add('completed');
+            li.dataset.priority = todo.priority; 
+            if (todo.priority === 1) li.classList.add('priority-low');
+            else if (todo.priority === 3) li.classList.add('priority-high');
+            else li.classList.add('priority-medium'); 
+            
+            li.draggable = currentSortOrder === 'default' && !todo.completed;
+            li.style.cursor = (currentSortOrder === 'default' && !todo.completed) ? 'grab' : 'default';
+            if (todo.completed) li.classList.add('completed'); 
             if (todo.starred) li.classList.add('starred');
 
             const contentWrapper = document.createElement('div');
@@ -404,7 +497,16 @@
             const textSpan = document.createElement('span');
             textSpan.textContent = todo.text;
             textSpan.classList.add('todo-text', 'flex-grow', 'text-main', 'mx-3', 'min-w-0', 'truncate'); 
-            contentWrapper.appendChild(checkbox); contentWrapper.appendChild(textSpan); 
+            
+            contentWrapper.appendChild(checkbox); 
+            contentWrapper.appendChild(textSpan); 
+
+            if (todo.dueDate) {
+                const dueDateSpan = document.createElement('span');
+                dueDateSpan.classList.add('task-due-date', 'text-xs', 'text-meta', 'ml-2', 'whitespace-nowrap', 'pl-1', 'pr-1'); 
+                dueDateSpan.textContent = `Due: ${todo.dueDate}`; 
+                contentWrapper.appendChild(dueDateSpan); 
+            }
 
             const buttonWrapper = document.createElement('div');
             buttonWrapper.classList.add('flex', 'items-center', 'flex-shrink-0', 'pr-3', 'py-3'); 
@@ -421,7 +523,6 @@
             buttonWrapper.appendChild(starBtn); buttonWrapper.appendChild(deleteBtn);
 
             li.appendChild(contentWrapper); li.appendChild(buttonWrapper);
-            // Render items in the order they are loaded from storage (respects drag/drop)
             todoList.appendChild(li); 
         }
 
@@ -455,45 +556,190 @@
              if (event.key === 'Escape') {
                  if (confirmationModal.classList.contains('visible')) handleCancelDelete(); 
                  if (clearConfirmationModal.classList.contains('visible')) hideClearConfirmationModal(); 
+                 if (currentlyEditing !== null) { // If in edit mode, cancel edit
+                    const li = todoList.querySelector(`li[data-id="${currentlyEditing}"]`);
+                    const textEditInput = li?.querySelector('.edit-input'); // Main text input
+                    if(li && textEditInput) saveEdit(li, textEditInput, currentlyEditing, true); // Pass true for isCancelled
+                 }
              }
         }
 
         // --- Edit Mode ---
         function enterEditMode(li, textSpan, todoId) {
             currentlyEditing = todoId; li.classList.add('editing'); li.draggable = false; li.style.cursor = 'default'; 
-            textSpan.classList.add('hidden'); 
-            const currentText = textSpan.textContent;
-            const input = document.createElement('input');
-            input.type = 'text'; input.value = currentText; input.classList.add('edit-input'); input.dataset.action = 'editInput'; 
-            const checkbox = li.querySelector('.checkbox-icon'); checkbox.after(input); 
-            input.focus(); input.select(); 
-            input.addEventListener('blur', () => saveEdit(li, input, todoId, false), { once: true }); 
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') { e.preventDefault(); input.blur(); } 
-                else if (e.key === 'Escape') { saveEdit(li, input, todoId, true); }
+            
+            const taskDataForEdit = getTodosFromStorage().find(t => t.id === todoId);
+            
+            // Hide the main text span and action buttons
+            const originalTextSpan = li.querySelector('.todo-text'); // textSpan passed in is this one
+            const actionButtons = li.querySelector('.flex-shrink-0'); // The div wrapper for star/delete
+            if(originalTextSpan) originalTextSpan.classList.add('hidden');
+            if(actionButtons) actionButtons.classList.add('hidden');
+
+            // Create a wrapper for all edit inputs
+            const editWrapper = document.createElement('div');
+            editWrapper.classList.add('edit-controls-wrapper'); 
+
+            // Main text input (re-use 'input' variable for clarity if needed, or new one)
+            const textEditInput = document.createElement('input');
+            textEditInput.type = 'text';
+            textEditInput.value = originalTextSpan.textContent;
+            textEditInput.classList.add('edit-input'); 
+
+            // Create and append Due Date input for editing
+            const editDueDateInput = document.createElement('input');
+            editDueDateInput.type = 'date';
+            editDueDateInput.id = 'editDueDateInput'; 
+            editDueDateInput.classList.add('edit-due-date-input'); 
+            if (taskDataForEdit && taskDataForEdit.dueDate) {
+                editDueDateInput.value = taskDataForEdit.dueDate;
+            }
+            
+            // Create and append Priority select for editing
+            const editPriorityInput = document.createElement('select');
+            editPriorityInput.id = 'editPriorityInput';
+            editPriorityInput.classList.add('edit-priority-select'); 
+            const priorities = [{value: 1, text: 'Low'}, {value: 2, text: 'Medium'}, {value: 3, text: 'High'}];
+            priorities.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.value;
+                option.textContent = p.text;
+                if (taskDataForEdit && taskDataForEdit.priority === p.value) {
+                    option.selected = true;
+                }
+                editPriorityInput.appendChild(option);
             });
+
+            editWrapper.appendChild(textEditInput); 
+            editWrapper.appendChild(editDueDateInput);
+            editWrapper.appendChild(editPriorityInput);
+            
+            const checkbox = li.querySelector('.checkbox-icon'); 
+            checkbox.after(editWrapper);
+
+            textEditInput.focus(); textEditInput.select(); 
+            
+            const saveOnBlurOrEnter = (event) => {
+                if (event.type === 'blur' && editWrapper.contains(event.relatedTarget)) {
+                    return; 
+                }
+                textEditInput.removeEventListener('blur', saveOnBlurOrEnter);
+                editDueDateInput.removeEventListener('blur', saveOnBlurOrEnter);
+                editPriorityInput.removeEventListener('blur', saveOnBlurOrEnter);
+                saveEdit(li, textEditInput, todoId, false); // Pass the textEditInput as the 'input' param
+            };
+            
+            textEditInput.addEventListener('blur', saveOnBlurOrEnter);
+            editDueDateInput.addEventListener('blur', saveOnBlurOrEnter);
+            editPriorityInput.addEventListener('blur', saveOnBlurOrEnter);
+
+            textEditInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); saveOnBlurOrEnter(e); } 
+                else if (e.key === 'Escape') { saveEdit(li, textEditInput, todoId, true); } // Pass true for isCancelled
+            });
+            // Allow Esc on date/priority inputs to also cancel
+            editDueDateInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') saveEdit(li, textEditInput, todoId, true); });
+            editPriorityInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') saveEdit(li, textEditInput, todoId, true); });
         }
 
-        function saveEdit(li, input, todoId, isCancelled) {
-             if (currentlyEditing !== todoId) return; 
-             const textSpan = li.querySelector('.todo-text');
-             const newText = input.value.trim();
-             input.remove(); textSpan.classList.remove('hidden'); li.classList.remove('editing');
-             const isCompleted = li.classList.contains('completed');
-             li.draggable = !isCompleted; li.style.cursor = isCompleted ? 'default' : 'grab'; 
-             currentlyEditing = null; 
-             if (!isCancelled && newText !== '' && newText !== textSpan.textContent) {
-                 textSpan.textContent = newText; updateTodoInStorage(todoId, { text: newText }); 
+        function saveEdit(li, textInput, todoId, isCancelled) { // textInput is the main text edit field
+             if (currentlyEditing !== todoId && !isCancelled) return; // Only proceed if it's the current edit or cancelling
+
+             const textSpanToUnhide = li.querySelector('.todo-text'); 
+             const actionButtonsToUnhide = li.querySelector('.flex-shrink-0'); 
+            
+             const editWrapper = li.querySelector('.edit-controls-wrapper');
+             const editDueDateInput = editWrapper ? editWrapper.querySelector('#editDueDateInput') : null;
+             const editPriorityInput = editWrapper ? editWrapper.querySelector('#editPriorityInput') : null;
+
+             const newText = textInput.value.trim(); // Use the passed textInput for newText
+             const newDueDate = editDueDateInput ? (editDueDateInput.value || null) : null;
+             let newPriority = editPriorityInput ? parseInt(editPriorityInput.value, 10) : null;
+            
+             if (newPriority !== null && (isNaN(newPriority) || ![1,2,3].includes(newPriority))) {
+               newPriority = null; 
              }
+
+            if(editWrapper) editWrapper.remove();
+
+            if(textSpanToUnhide) textSpanToUnhide.classList.remove('hidden'); 
+            if(actionButtonsToUnhide) actionButtonsToUnhide.classList.remove('hidden');
+            li.classList.remove('editing');
+
+            const isCompleted = li.classList.contains('completed');
+            li.draggable = currentSortOrder === 'default' && !isCompleted; 
+            li.style.cursor = (currentSortOrder === 'default' && !isCompleted) ? 'grab' : 'default';
+            currentlyEditing = null; 
+
+            if (isCancelled) return;
+
+            const originalTaskData = getTodosFromStorage().find(t => t.id === todoId);
+            if (!originalTaskData) { console.error("Original task data not found for saving edit."); return; }
+
+            const updatedProperties = {};
+            let hasChanges = false;
+
+            if (newText !== '' && newText !== originalTaskData.text) {
+                updatedProperties.text = newText;
+                hasChanges = true;
+            } else if (newText === '' && originalTaskData.text !== '') {
+                if(textSpanToUnhide) textSpanToUnhide.textContent = originalTaskData.text; 
+                return; 
+            }
+
+            if (newDueDate !== originalTaskData.dueDate) {
+               updatedProperties.dueDate = newDueDate;
+               hasChanges = true;
+            }
+            if (newPriority !== null && newPriority !== originalTaskData.priority) {
+               updatedProperties.priority = newPriority;
+               hasChanges = true;
+            }
+
+            if (hasChanges) {
+                if (updatedProperties.text !== undefined && textSpanToUnhide) {
+                   textSpanToUnhide.textContent = updatedProperties.text;
+                }
+                
+                let dueDateSpan = li.querySelector('.task-due-date');
+                if (updatedProperties.dueDate !== undefined) { 
+                    if (updatedProperties.dueDate) { 
+                        if (!dueDateSpan) { 
+                            dueDateSpan = document.createElement('span');
+                            dueDateSpan.classList.add('task-due-date', 'text-xs', 'text-meta', 'ml-2', 'whitespace-nowrap', 'pl-1', 'pr-1');
+                            if(textSpanToUnhide) textSpanToUnhide.after(dueDateSpan); 
+                            else if(li.querySelector('.checkbox-icon')) li.querySelector('.checkbox-icon').after(dueDateSpan); 
+                        }
+                        dueDateSpan.textContent = `Due: ${updatedProperties.dueDate}`;
+                    } else if (dueDateSpan) { 
+                        dueDateSpan.remove();
+                    }
+                }
+                
+                if (updatedProperties.priority !== undefined) {
+                   li.dataset.priority = updatedProperties.priority;
+                   li.classList.remove('priority-low', 'priority-medium', 'priority-high');
+                   if (updatedProperties.priority === 1) li.classList.add('priority-low');
+                   else if (updatedProperties.priority === 3) li.classList.add('priority-high');
+                   else li.classList.add('priority-medium');
+                }
+                updateTodoInStorage(todoId, updatedProperties); 
+            }
         }
+
 
         // --- Action Handlers ---
         function toggleComplete(todoId, li, checkbox) {
             const isCompleted = !li.classList.contains('completed'); 
             li.classList.toggle('completed', isCompleted); li.dataset.completed = isCompleted; checkbox.setAttribute('aria-checked', isCompleted); 
-            li.draggable = !isCompleted; li.style.cursor = isCompleted ? 'default' : 'grab'; 
+            li.draggable = currentSortOrder === 'default' && !isCompleted; // Update draggable state
+            li.style.cursor = (currentSortOrder === 'default' && !isCompleted) ? 'grab' : 'default';
+            if(isCompleted && li.classList.contains('editing')) { // If task is completed while editing, cancel edit
+                 const textEditInput = li.querySelector('.edit-input');
+                 if(textEditInput) saveEdit(li, textEditInput, todoId, true); // Cancel the edit
+            }
             updateTodoInStorage(todoId, { completed: isCompleted });
-            applyFilter(); updateTaskCount(); updateClearButtonVisibility(); updateEmptyMessageVisibility();
+            applyFiltersAndSearch(); updateTaskCount(); updateClearButtonVisibility(); 
         }
 
         function toggleStar(todoId, li, starBtn) {
@@ -501,7 +747,7 @@
             li.classList.toggle('starred', isStarred); li.dataset.starred = isStarred; 
             starBtn.setAttribute('aria-label', isStarred ? 'Unstar task' : 'Star task'); starBtn.setAttribute('aria-pressed', isStarred); 
             updateTodoInStorage(todoId, { starred: isStarred });
-            applyFilter(); updateEmptyMessageVisibility(); 
+            applyFiltersAndSearch(); 
         }
 
         function deleteTodo(todoId) {
@@ -512,13 +758,17 @@
                     liToDelete.remove();
                     const todos = getTodosFromStorage().filter(todo => todo.id !== todoId);
                     saveTodosToStorage(todos);
-                    updateTaskCount(); updateClearButtonVisibility(); updateEmptyMessageVisibility();
+                    applyFiltersAndSearch(); 
+                    updateTaskCount(); 
+                    updateClearButtonVisibility(); 
                 }, { once: true });
             } else {
                  console.warn("Delete failed: Element not found visually:", todoId);
                  const todos = getTodosFromStorage().filter(todo => todo.id !== todoId);
                  saveTodosToStorage(todos);
-                 updateTaskCount(); updateClearButtonVisibility(); updateEmptyMessageVisibility();
+                 applyFiltersAndSearch(); 
+                 updateTaskCount(); 
+                 updateClearButtonVisibility();
             }
         }
 
@@ -549,7 +799,10 @@
                     if (li) { li.classList.add('deleting'); li.addEventListener('animationend', () => li.remove(), { once: true }); }
                 });
                 setTimeout(() => { 
-                    saveTodosToStorage(activeTodos); updateTaskCount(); updateClearButtonVisibility(); updateEmptyMessageVisibility(); 
+                    saveTodosToStorage(activeTodos); 
+                    applyFiltersAndSearch(); 
+                    updateTaskCount(); 
+                    updateClearButtonVisibility();
                 }, 50); 
             }
             hideClearConfirmationModal(); 
@@ -559,34 +812,52 @@
             clearCompletedContainer.classList.toggle('hidden', !hasCompleted); 
         }
 
-        // --- Filtering ---
+        // --- Filtering, Searching & Sorting ---
+        function handleSearchInput(event) {
+            currentSearchTerm = event.target.value.toLowerCase();
+            applyFiltersAndSearch();
+        }
+
+        function handleSortChange(event) {
+            currentSortOrder = event.target.value;
+            loadTodos(); 
+        }
+
         function handleFilterClick(event) {
             if (currentlyEditing !== null) { 
                 const li = todoList.querySelector(`li[data-id="${currentlyEditing}"]`); 
-                const input = li?.querySelector('.edit-input'); 
-                if (li && input) { saveEdit(li, input, currentlyEditing, false); } 
+                const textEditInput = li?.querySelector('.edit-input');
+                if (li && textEditInput) { saveEdit(li, textEditInput, currentlyEditing, false); } 
             }
             const selectedFilter = event.currentTarget.dataset.filter; 
             if (selectedFilter === currentFilter) return; 
             currentFilter = selectedFilter; 
             filterButtons.forEach(button => button.classList.toggle('active', button.dataset.filter === currentFilter));
-            applyFilter(); updateEmptyMessageVisibility(); 
+            applyFiltersAndSearch();
         }
 
-        function applyFilter() {
+        function applyFiltersAndSearch() { 
             const listItems = todoList.querySelectorAll('li'); 
+            const searchTerm = currentSearchTerm; 
+
             listItems.forEach(li => {
+                const taskText = li.querySelector('.todo-text')?.textContent.toLowerCase() || '';
                 const isStarred = li.dataset.starred === 'true'; 
                 const isCompleted = li.dataset.completed === 'true'; 
-                let shouldShow = true; 
+                
+                let matchesFilter = true; 
                 switch (currentFilter) {
-                    case 'starred': shouldShow = isStarred; break; 
-                    case 'active': shouldShow = !isCompleted; break; 
-                    case 'completed': shouldShow = isCompleted; break; 
-                    case 'all': default: shouldShow = true; break;
+                    case 'starred': matchesFilter = isStarred; break; 
+                    case 'active': matchesFilter = !isCompleted; break; 
+                    case 'completed': matchesFilter = isCompleted; break; 
+                    case 'all': default: matchesFilter = true; break;
                 }
-                li.classList.toggle('hidden', !shouldShow); 
+
+                const matchesSearch = searchTerm === '' || taskText.includes(searchTerm);
+                
+                li.classList.toggle('hidden', !(matchesFilter && matchesSearch)); 
             });
+            updateEmptyMessageVisibility(); 
         }
 
         // --- Task Count ---
@@ -604,27 +875,33 @@
 
         // --- Empty Messages ---
         function updateEmptyMessageVisibility() {
-            const allTodos = getTodosFromStorage();
-            const visibleItems = todoList.querySelectorAll('li:not(.hidden)');
-            const isListEmpty = allTodos.length === 0;
-            const isFilterEmpty = currentFilter !== 'all' && visibleItems.length === 0 && !isListEmpty;
+            const allTodos = getTodosFromStorage(); 
+            const visibleItems = todoList.querySelectorAll('li:not(.hidden)'); 
+            const isListEmpty = allTodos.length === 0; 
+            
+            const hasActiveSearch = currentSearchTerm !== '';
+            const noResultsForSearch = hasActiveSearch && visibleItems.length === 0 && !isListEmpty;
+            const noResultsForFilter = !hasActiveSearch && currentFilter !== 'all' && visibleItems.length === 0 && !isListEmpty;
 
             emptyListMessage.classList.toggle('hidden', !isListEmpty); 
-            emptyFilterMessage.classList.toggle('hidden', !isFilterEmpty); 
-
-            if (isFilterEmpty) { 
-                const filterTextElement = emptyFilterMessage.querySelector('p');
-                if (filterTextElement) {
-                    switch(currentFilter) {
-                        case 'starred': filterTextElement.textContent = 'No starred tasks'; break; 
-                        case 'active': filterTextElement.textContent = 'No active tasks'; break; 
-                        case 'completed': filterTextElement.textContent = 'No completed tasks'; break; 
-                        default: filterTextElement.textContent = 'No tasks match the current filter.'; 
-                    }
+            
+            const filterTextElement = emptyFilterMessage.querySelector('p');
+            if (noResultsForSearch) {
+                filterTextElement.textContent = `No tasks match your search for "${currentSearchTerm}".`;
+                emptyFilterMessage.classList.remove('hidden');
+            } else if (noResultsForFilter) {
+                 switch(currentFilter) {
+                    case 'starred': filterTextElement.textContent = 'No starred tasks.'; break; 
+                    case 'active': filterTextElement.textContent = 'No active tasks.'; break; 
+                    case 'completed': filterTextElement.textContent = 'No completed tasks.'; break; 
+                    default: filterTextElement.textContent = 'No tasks match the current filter.';  
                 }
+                emptyFilterMessage.classList.remove('hidden');
+            } else {
+                emptyFilterMessage.classList.add('hidden');
             }
-
-            todoList.classList.toggle('hidden', isListEmpty || isFilterEmpty);
+            
+            todoList.classList.toggle('hidden', isListEmpty || noResultsForSearch || noResultsForFilter);
 
             if (isListEmpty) { 
                 clearCompletedContainer.classList.add('hidden'); 
@@ -656,8 +933,8 @@
         function toggleTheme() { 
             if (currentlyEditing !== null) { 
                 const li = todoList.querySelector(`li[data-id="${currentlyEditing}"]`); 
-                const input = li?.querySelector('.edit-input'); 
-                if (li && input) { saveEdit(li, input, currentlyEditing, false); } 
+                const textEditInput = li?.querySelector('.edit-input');
+                if (li && textEditInput) { saveEdit(li, textEditInput, currentlyEditing, false); } 
             } 
             const isDark = document.documentElement.classList.toggle('dark'); 
             localStorage.setItem('theme', isDark ? 'dark' : 'light'); 
@@ -668,7 +945,7 @@
         // --- Drag & Drop Handlers ---
         function handleDragStart(e) {
             const target = e.target;
-            if (target.classList.contains('completed') || target.classList.contains('editing') || e.target.closest('button, input, .checkbox-icon, .edit-input')) {
+            if (target.classList.contains('completed') || target.classList.contains('editing') || e.target.closest('button, input, .checkbox-icon, .edit-input, .edit-due-date-input, .edit-priority-select')) {
                 e.preventDefault(); return;
             }
             draggedItem = target; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', draggedItem.dataset.id); 
@@ -698,10 +975,12 @@
             if (dropBefore) { todoList.insertBefore(draggedItem, targetItem); } 
             else { todoList.insertBefore(draggedItem, targetItem.nextSibling); }
             targetItem.classList.remove('drag-over-top', 'drag-over-bottom');
-            updateStorageOrder(); 
+            if (currentSortOrder === 'default') { 
+                updateStorageOrder(); 
+            }
         }
         function clearDragOverIndicators(exceptItem = null) { document.querySelectorAll('#todoList li').forEach(li => { if (li !== exceptItem) { li.classList.remove('drag-over-top', 'drag-over-bottom'); } }); }
-        function updateStorageOrder() {
+        function updateStorageOrder() { 
             const listItems = Array.from(todoList.querySelectorAll('li'));
             const orderedIds = listItems.map(li => Number(li.dataset.id));
             const currentTodos = getTodosFromStorage();
@@ -716,23 +995,74 @@
                 const todosString = localStorage.getItem('todos'); 
                 const todos = todosString ? JSON.parse(todosString) : []; 
                 return todos.map(todo => ({
-                    text: todo.text ?? 'Untitled Task', completed: todo.completed ?? false, 
-                    id: todo.id ?? Date.now(), starred: todo.starred ?? false, 
+                    text: todo.text ?? 'Untitled Task', 
+                    completed: todo.completed ?? false, 
+                    id: todo.id ?? Date.now(), 
+                    starred: todo.starred ?? false,
+                    dueDate: todo.dueDate ?? null,          
+                    priority: todo.priority ?? 2          
                 })).filter(todo => todo.id && typeof todo.text === 'string'); 
             } catch (e) { console.error("Error reading todos from localStorage:", e); return []; }
         }
-        function saveTodosToStorage(todos) { try { localStorage.setItem('todos', JSON.stringify(todos)); } catch (e) { console.error("Error saving todos to localStorage:", e); } }
-        function updateTodoInStorage(todoId, updatedProperties) {
-            const todos = getTodosFromStorage(); let found = false;
-            const updatedTodos = todos.map(todo => { if (todo.id === todoId) { found = true; return { ...todo, ...updatedProperties }; } return todo; });
-            if (found) { saveTodosToStorage(updatedTodos); } else { console.warn("Update failed: Todo not found in storage:", todoId); }
+
+        function saveTodosToStorage(todos) { 
+            try { 
+                localStorage.setItem('todos', JSON.stringify(todos)); 
+            } catch (e) { 
+                console.error("Error saving todos to localStorage:", e); 
+            } 
         }
-        function loadTodos() {
+
+        function updateTodoInStorage(todoId, updatedProperties) {
             const todos = getTodosFromStorage(); 
+            let found = false;
+            const updatedTodos = todos.map(todo => { 
+                if (todo.id === todoId) { 
+                    found = true; 
+                    return { ...todo, ...updatedProperties }; 
+                } 
+                return todo; 
+            });
+            if (found) { 
+                saveTodosToStorage(updatedTodos); 
+            } else { 
+                console.warn("Update failed: Todo not found in storage:", todoId); 
+            }
+        }
+
+        function loadTodos() {
+            let todos = getTodosFromStorage(); 
+            
+            if (currentSortOrder !== 'default') {
+                todos.sort((a, b) => {
+                    switch (currentSortOrder) {
+                        case 'dueDateAsc': 
+                            if (!a.dueDate) return 1; 
+                            if (!b.dueDate) return -1;
+                            return new Date(a.dueDate) - new Date(b.dueDate);
+                        case 'dueDateDesc': 
+                            if (!a.dueDate) return 1;
+                            if (!b.dueDate) return -1;
+                            return new Date(b.dueDate) - new Date(a.dueDate);
+                        case 'priorityDesc': 
+                            return (b.priority || 0) - (a.priority || 0);
+                        case 'priorityAsc': 
+                            return (a.priority || 0) - (b.priority || 0);
+                        case 'nameAZ':
+                            return a.text.toLowerCase().localeCompare(b.text.toLowerCase());
+                        case 'nameZA':
+                            return b.text.toLowerCase().localeCompare(a.text.toLowerCase());
+                        default: return 0;
+                    }
+                });
+            }
+
             todoList.innerHTML = ''; 
-            // Render in storage order
             todos.forEach(todo => renderTodoItem(todo)); 
-            applyFilter(); updateTaskCount(); updateClearButtonVisibility(); updateEmptyMessageVisibility();
+            
+            applyFiltersAndSearch(); 
+            updateTaskCount(); 
+            updateClearButtonVisibility(); 
         }
 
     </script>
