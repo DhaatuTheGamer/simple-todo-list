@@ -52,5 +52,3 @@ This is a straightforward and easy-to-use To-Do List application created using b
 * Add visual cues for tasks with upcoming or past due dates.
 * Implement task reminders or notifications.
 * User accounts and cloud synchronization.
-
-[end of README.md]
