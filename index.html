@@ -125,6 +125,14 @@
              color: var(--text-primary);
              border-color: var(--border-secondary);
         }
+        html.dark .recurrence-options-panel select, /* For main add form's recurrence */
+        html.dark .edit-recurrence-panel select {  /* For edit mode's recurrence */
+            background-color: var(--bg-input);
+            color: var(--text-primary);
+            border: 1px solid var(--border-secondary); /* Ensure consistent border */
+            /* Add some padding if needed, though Tailwind classes usually handle this */
+            padding: 0.5rem; /* Tailwind 'p-2' equivalent, adjust as needed */
+        }
         #todoDueDateInput:focus-visible, #todoPriorityInput:focus-visible, #searchInput:focus-visible, #sortSelect:focus-visible {
             border-color: var(--border-focus);
             box-shadow: 0 0 0 1px var(--border-focus);
@@ -1525,5 +1533,3 @@
 
 </body>
 </html>
-
-[end of index.html]
