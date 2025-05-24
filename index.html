@@ -134,7 +134,7 @@
         /* --- Task Item --- */
         #todoList { border: 1px solid var(--border-primary); border-radius: 0.75rem; overflow: hidden; }
         #todoList li {
-            cursor: grab;
+            /* cursor: grab; /* Set dynamically in JS based on sort order and level */
             transition: background-color 0.2s ease, opacity 0.4s ease, transform 0.4s ease, box-shadow 0.2s ease; 
             will-change: opacity, transform;
             border-bottom: 1px solid var(--border-primary);
@@ -167,20 +167,36 @@
             color: var(--text-primary); background-color: var(--bg-input); outline: none; 
             line-height: inherit; height: auto; 
         }
-        .edit-due-date-input, .edit-priority-select { /* Specific styles for date/priority in edit mode */
+        .edit-due-date-input, .edit-priority-select, .edit-recurrence-type-select { /* Specific styles for date/priority/recurrence in edit mode */
             border: 1px solid var(--border-secondary); border-radius: 0.375rem; padding: 0.5rem; margin: 0.25rem; 
             color: var(--text-primary); background-color: var(--bg-input); outline: none; 
             line-height: inherit; height: auto; font-size: 0.875rem; /* Smaller font for these inputs */
-            flex-grow: 0; /* Don't let date/priority inputs grow as much as text */
-            min-width: 120px; /* Ensure they have some base width */
+            flex-grow: 0; 
+            min-width: 120px; 
         }
-        .edit-input:focus-visible, .edit-due-date-input:focus-visible, .edit-priority-select:focus-visible {
+        .edit-input:focus-visible, .edit-due-date-input:focus-visible, .edit-priority-select:focus-visible, .edit-recurrence-type-select:focus-visible {
             border-color: var(--border-focus); box-shadow: 0 0 0 1px var(--border-focus); /* Subtle focus */
         }
         /* Container for edit inputs within the list item */
         .edit-controls-wrapper {
             display: flex; flex-wrap: wrap; align-items: center; width: 100%; padding-left: 2.5rem; /* Align with where text usually starts */
         }
+        .edit-recurrence-panel { /* Panel for recurrence options in edit mode */
+            width: 100%; 
+            padding: 0.5rem; margin-top: 0.5rem;
+            border: 1px solid var(--border-secondary); border-radius: 0.375rem;
+            background-color: var(--bg-tertiary-hover); /* Slightly different bg */
+        }
+        .recurrence-options-panel { /* General styles for recurrence panels */
+            padding: 0.75rem; margin-top: 0.5rem; border-radius: 0.5rem;
+            border: 1px solid var(--border-secondary);
+            background-color: var(--bg-tertiary-hover);
+        }
+        .recurrence-options-panel label, .recurrence-options-panel select, .recurrence-options-panel input {
+            font-size: 0.875rem; margin-right: 0.5rem;
+        }
+        .recurrence-days-of-week { margin-top: 0.5rem; }
+        .recurrence-days-of-week input[type="checkbox"] { margin-right: 0.25rem; }
 
 
         /* --- Checkbox --- */
@@ -303,8 +319,8 @@
             </div>
             
             <!-- Add Task Form -->
-            <div class="mb-6"> <!-- Reduced bottom margin -->
-                <div class="flex flex-col sm:flex-row gap-1.5 shadow-sm rounded-lg"> <!-- Reduced gap -->
+            <div class="mb-6"> 
+                <div class="flex flex-col sm:flex-row gap-1.5 shadow-sm rounded-lg"> 
                     <input type="text" id="todoInput" class="flex-grow border border-input rounded-lg sm:rounded-l-lg sm:rounded-r-none p-2.5 text-sm text-main bg-input focus:outline-none focus-visible:border-focus focus-visible:ring-focus transition duration-150 placeholder-placeholder" placeholder="Add a new task..." aria-label="Add a new task">
                     <input type="date" id="todoDueDateInput" title="Due Date" class="border border-input rounded-lg sm:rounded-none p-2.5 text-xs text-main bg-input focus:outline-none focus-visible:border-focus focus-visible:ring-focus transition duration-150 w-full sm:w-auto" style="min-width: 130px;">
                     <select id="todoPriorityInput" title="Priority" class="border border-input rounded-lg sm:rounded-none p-2.5 text-xs text-main bg-input focus:outline-none focus-visible:border-focus focus-visible:ring-focus transition duration-150 w-full sm:w-auto" style="min-width: 90px;">
@@ -312,10 +328,14 @@
                         <option value="2" selected>Medium</option>
                         <option value="3">High</option>
                     </select>
-                    <button id="addTodoBtn" class="btn btn-primary rounded-lg sm:rounded-r-lg sm:rounded-l-none px-4 py-2.5 w-full sm:w-auto text-sm">Add</button> <!-- Adjusted padding & text size -->
+                    <button type="button" id="setRecurrenceBtnMain" class="btn-text text-xs p-2.5 border border-input rounded-lg sm:rounded-none w-full sm:w-auto" title="Set Recurrence">Recurrence</button>
+                    <button id="addTodoBtn" class="btn btn-primary rounded-lg sm:rounded-r-lg sm:rounded-l-none px-4 py-2.5 w-full sm:w-auto text-sm">Add</button> 
+                </div>
+                <div id="mainRecurrenceOptions" class="recurrence-options-panel hidden mt-2">
+                     {/* Recurrence options will be built here by JS */}
                 </div>
             </div>
-            <p id="inputError" class="text-red-500 text-sm -mt-2 mb-4 hidden">Task cannot be empty!</p> <!-- Adjusted margin -->
+            <p id="inputError" class="text-red-500 text-sm -mt-2 mb-4 hidden">Task cannot be empty!</p> 
             
             <div id="listContainer">
                 <ul id="todoList" class=""></ul>
@@ -376,15 +396,13 @@
         const clearConfirmationModal = document.getElementById('clearConfirmationModal');
         const confirmClearBtn = document.getElementById('confirmClearBtn');
         const cancelClearBtn = document.getElementById('cancelClearBtn');
-        // Search and Sort elements will be accessed here after HTML is added
-        // const searchInput = document.getElementById('searchInput'); 
-        // const sortSelect = document.getElementById('sortSelect');
-
+        
         // --- App State ---
         let todoIdToDelete = null; 
         let currentFilter = 'all'; 
-        let currentSearchTerm = ''; // For search functionality
-        let currentSortOrder = 'default'; // For sorting functionality
+        let currentSearchTerm = ''; 
+        let currentSortOrder = 'default'; 
+        let currentParentIdForNewTask = null; 
         let isSidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true'; 
         let currentlyEditing = null; 
         let draggedItem = null; 
@@ -401,6 +419,11 @@
         if (sortSelect) {
            sortSelect.addEventListener('change', handleSortChange);
         }
+        const setRecurrenceBtnMain = document.getElementById('setRecurrenceBtnMain');
+        if (setRecurrenceBtnMain) {
+            setRecurrenceBtnMain.addEventListener('click', () => toggleRecurrencePanel('mainRecurrenceOptions', null));
+        }
+
 
         todoList.addEventListener('click', handleListClick); 
         todoList.addEventListener('dblclick', handleListDoubleClick); 
@@ -446,6 +469,22 @@
 
             const priorityInput = document.getElementById('todoPriorityInput');
             const priorityValue = priorityInput ? parseInt(priorityInput.value, 10) : 2; 
+            
+            let parentId = null;
+            let level = 0;
+
+            if (currentParentIdForNewTask !== null) {
+                parentId = Number(currentParentIdForNewTask);
+                const parentTask = getTodosFromStorage().find(t => t.id === parentId);
+                if (parentTask) {
+                    level = parentTask.level + 1;
+                } else {
+                    console.error("Parent task not found for sub-task creation. Defaulting to top-level.");
+                    parentId = null; 
+                }
+            }
+            
+            const recurrenceData = collectRecurrenceData('main');
 
             const todo = { 
                 text: todoText, 
@@ -453,18 +492,23 @@
                 id: Date.now(), 
                 starred: false,
                 dueDate: dueDateValue || null, 
-                priority: isNaN(priorityValue) || ![1,2,3].includes(priorityValue) ? 2 : priorityValue 
+                priority: isNaN(priorityValue) || ![1,2,3].includes(priorityValue) ? 2 : priorityValue,
+                parentId: parentId,
+                level: level,
+                recurrence: recurrenceData 
             };
             const todos = getTodosFromStorage();
             todos.unshift(todo); 
             saveTodosToStorage(todos);
-            renderTodoItem(todo); 
-            const newItem = todoList.querySelector(`li[data-id="${todo.id}"]`);
-            if (newItem) {
-                newItem.classList.add('adding'); 
-                newItem.addEventListener('animationend', () => newItem.classList.remove('adding'), { once: true });
+            
+            if (currentParentIdForNewTask !== null) {
+                currentParentIdForNewTask = null; 
+                todoInput.placeholder = "Add a new task..."; 
             }
-            applyFiltersAndSearch(); updateTaskCount(); updateClearButtonVisibility(); 
+            document.getElementById('mainRecurrenceOptions').classList.add('hidden'); // Hide after add
+
+            loadTodos(); 
+            
             todoInput.value = ''; 
             if(dueDateInput) dueDateInput.value = ''; 
             if(priorityInput) priorityInput.value = '2'; 
@@ -478,12 +522,17 @@
             li.dataset.starred = todo.starred;
             li.dataset.completed = todo.completed;
             li.dataset.priority = todo.priority; 
+            li.dataset.level = todo.level || 0; 
+            li.setAttribute('aria-level', (todo.level || 0) + 1);
+            li.style.marginLeft = `${(todo.level || 0) * 25}px`; 
+
             if (todo.priority === 1) li.classList.add('priority-low');
             else if (todo.priority === 3) li.classList.add('priority-high');
             else li.classList.add('priority-medium'); 
             
-            li.draggable = currentSortOrder === 'default' && !todo.completed;
-            li.style.cursor = (currentSortOrder === 'default' && !todo.completed) ? 'grab' : 'default';
+            li.draggable = currentSortOrder === 'default' && !todo.completed && (todo.level || 0) === 0;
+            li.style.cursor = (li.draggable) ? 'grab' : 'default';
+
             if (todo.completed) li.classList.add('completed'); 
             if (todo.starred) li.classList.add('starred');
 
@@ -507,6 +556,14 @@
                 dueDateSpan.textContent = `Due: ${todo.dueDate}`; 
                 contentWrapper.appendChild(dueDateSpan); 
             }
+             // Display recurrence info if present
+            const recurrenceSummary = getRecurrenceSummary(todo.recurrence);
+            if (recurrenceSummary) {
+                const recurrenceSpan = document.createElement('span');
+                recurrenceSpan.classList.add('task-recurrence-info', 'text-xs', 'text-blue-500', 'dark:text-blue-400', 'ml-2', 'whitespace-nowrap', 'pl-1', 'pr-1', 'italic');
+                recurrenceSpan.textContent = recurrenceSummary;
+                contentWrapper.appendChild(recurrenceSpan);
+            }
 
             const buttonWrapper = document.createElement('div');
             buttonWrapper.classList.add('flex', 'items-center', 'flex-shrink-0', 'pr-3', 'py-3'); 
@@ -515,12 +572,26 @@
             starBtn.dataset.action = 'star'; 
             starBtn.innerHTML = `<svg class="w-5 h-5 pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.27L18.18 21L16.54 13.97L22 9.24L14.81 8.63L12 2L9.19 8.63L2 9.24L7.46 13.97L5.82 21L12 17.27Z"></path></svg>`;
             starBtn.setAttribute('aria-label', todo.starred ? 'Unstar task' : 'Star task'); starBtn.setAttribute('aria-pressed', todo.starred);
+            
+            const MAX_SUBTASK_LEVEL = 2; 
+            if ((todo.level || 0) < MAX_SUBTASK_LEVEL) {
+                const addSubtaskBtn = document.createElement('button');
+                addSubtaskBtn.classList.add('add-subtask-btn', 'ml-2', 'p-1', 'rounded-full', 'hover:bg-gray-200', 'dark:hover:bg-gray-700');
+                addSubtaskBtn.title = "Add sub-task";
+                addSubtaskBtn.dataset.action = 'addSubtask';
+                addSubtaskBtn.dataset.parentId = todo.id;
+                addSubtaskBtn.innerHTML = `<svg class="w-5 h-5 pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"></path></svg>`;
+                buttonWrapper.appendChild(addSubtaskBtn); 
+            }
+
             const deleteBtn = document.createElement('button');
             deleteBtn.classList.add('delete-btn', 'ml-2', 'p-1', 'rounded-full'); 
             deleteBtn.dataset.action = 'delete'; 
             deleteBtn.innerHTML = `<svg class="w-5 h-5 pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"></path></svg>`;
             deleteBtn.setAttribute('aria-label', 'Delete task');
-            buttonWrapper.appendChild(starBtn); buttonWrapper.appendChild(deleteBtn);
+            
+            buttonWrapper.appendChild(starBtn); 
+            buttonWrapper.appendChild(deleteBtn);
 
             li.appendChild(contentWrapper); li.appendChild(buttonWrapper);
             todoList.appendChild(li); 
@@ -539,6 +610,14 @@
                 if (action === 'delete') showConfirmationModal(todoId); 
                 else if (action === 'star') toggleStar(todoId, li, actionTarget); 
                 else if (action === 'toggleComplete') toggleComplete(todoId, li, actionTarget); 
+                else if (action === 'addSubtask') {
+                    const parentId = actionTarget.dataset.parentId;
+                    currentParentIdForNewTask = parentId;
+                    const parentTask = getTodosFromStorage().find(t => t.id === Number(parentId));
+                    const parentText = parentTask ? parentTask.text : '';
+                    todoInput.placeholder = `Adding sub-task to: "${parentText.substring(0,20)}${parentText.length > 20 ? '...' : ''}"`;
+                    todoInput.focus();
+                }
             } 
         }
         
@@ -556,10 +635,10 @@
              if (event.key === 'Escape') {
                  if (confirmationModal.classList.contains('visible')) handleCancelDelete(); 
                  if (clearConfirmationModal.classList.contains('visible')) hideClearConfirmationModal(); 
-                 if (currentlyEditing !== null) { // If in edit mode, cancel edit
+                 if (currentlyEditing !== null) { 
                     const li = todoList.querySelector(`li[data-id="${currentlyEditing}"]`);
-                    const textEditInput = li?.querySelector('.edit-input'); // Main text input
-                    if(li && textEditInput) saveEdit(li, textEditInput, currentlyEditing, true); // Pass true for isCancelled
+                    const textEditInput = li?.querySelector('.edit-input'); 
+                    if(li && textEditInput) saveEdit(li, textEditInput, currentlyEditing, true); 
                  }
              }
         }
@@ -570,64 +649,80 @@
             
             const taskDataForEdit = getTodosFromStorage().find(t => t.id === todoId);
             
-            // Hide the main text span and action buttons
-            const originalTextSpan = li.querySelector('.todo-text'); // textSpan passed in is this one
-            const actionButtons = li.querySelector('.flex-shrink-0'); // The div wrapper for star/delete
+            const originalTextSpan = li.querySelector('.todo-text'); 
+            const actionButtons = li.querySelector('.flex-shrink-0'); 
             if(originalTextSpan) originalTextSpan.classList.add('hidden');
             if(actionButtons) actionButtons.classList.add('hidden');
 
-            // Create a wrapper for all edit inputs
             const editWrapper = document.createElement('div');
             editWrapper.classList.add('edit-controls-wrapper'); 
 
-            // Main text input (re-use 'input' variable for clarity if needed, or new one)
             const textEditInput = document.createElement('input');
             textEditInput.type = 'text';
             textEditInput.value = originalTextSpan.textContent;
             textEditInput.classList.add('edit-input'); 
 
-            // Create and append Due Date input for editing
             const editDueDateInput = document.createElement('input');
             editDueDateInput.type = 'date';
             editDueDateInput.id = 'editDueDateInput'; 
             editDueDateInput.classList.add('edit-due-date-input'); 
-            if (taskDataForEdit && taskDataForEdit.dueDate) {
-                editDueDateInput.value = taskDataForEdit.dueDate;
-            }
+            if (taskDataForEdit && taskDataForEdit.dueDate) editDueDateInput.value = taskDataForEdit.dueDate;
             
-            // Create and append Priority select for editing
             const editPriorityInput = document.createElement('select');
             editPriorityInput.id = 'editPriorityInput';
             editPriorityInput.classList.add('edit-priority-select'); 
             const priorities = [{value: 1, text: 'Low'}, {value: 2, text: 'Medium'}, {value: 3, text: 'High'}];
             priorities.forEach(p => {
                 const option = document.createElement('option');
-                option.value = p.value;
-                option.textContent = p.text;
-                if (taskDataForEdit && taskDataForEdit.priority === p.value) {
-                    option.selected = true;
-                }
+                option.value = p.value; option.textContent = p.text;
+                if (taskDataForEdit && taskDataForEdit.priority === p.value) option.selected = true;
                 editPriorityInput.appendChild(option);
             });
+
+            const setRecurrenceBtnEdit = document.createElement('button');
+            setRecurrenceBtnEdit.type = 'button';
+            setRecurrenceBtnEdit.textContent = 'Set Recurrence';
+            setRecurrenceBtnEdit.classList.add('btn-text', 'text-xs', 'ml-auto'); 
+            const editRecurrencePanelId = `editRecurrenceOptions_${todoId}`;
+            setRecurrenceBtnEdit.onclick = () => toggleRecurrencePanel(editRecurrencePanelId, todoId);
 
             editWrapper.appendChild(textEditInput); 
             editWrapper.appendChild(editDueDateInput);
             editWrapper.appendChild(editPriorityInput);
+            editWrapper.appendChild(setRecurrenceBtnEdit); 
             
+            const editRecurrencePanel = document.createElement('div');
+            editRecurrencePanel.id = editRecurrencePanelId;
+            editRecurrencePanel.classList.add('edit-recurrence-panel', 'hidden', 'w-full'); 
+            editWrapper.appendChild(editRecurrencePanel); 
+
             const checkbox = li.querySelector('.checkbox-icon'); 
             checkbox.after(editWrapper);
 
             textEditInput.focus(); textEditInput.select(); 
             
             const saveOnBlurOrEnter = (event) => {
-                if (event.type === 'blur' && editWrapper.contains(event.relatedTarget)) {
+                const targetIsInsideEditWrapper = editWrapper.contains(event.relatedTarget);
+                const targetIsRecurrencePanelItself = event.relatedTarget && event.relatedTarget.closest('.edit-recurrence-panel, .recurrence-options-panel');
+
+                if (event.type === 'blur' && (targetIsInsideEditWrapper || targetIsRecurrencePanelItself)) {
                     return; 
                 }
+                document.removeEventListener('click', outsideClickListener, true); 
                 textEditInput.removeEventListener('blur', saveOnBlurOrEnter);
                 editDueDateInput.removeEventListener('blur', saveOnBlurOrEnter);
                 editPriorityInput.removeEventListener('blur', saveOnBlurOrEnter);
-                saveEdit(li, textEditInput, todoId, false); // Pass the textEditInput as the 'input' param
+                saveEdit(li, textEditInput, todoId, false); 
             };
+            
+            const outsideClickListener = (event) => {
+                if (!li.contains(event.target) && !event.target.closest('.modal-overlay')) { 
+                    saveOnBlurOrEnter(event); 
+                }
+            };
+            setTimeout(() => {
+                document.addEventListener('click', outsideClickListener, true); 
+            }, 0);
             
             textEditInput.addEventListener('blur', saveOnBlurOrEnter);
             editDueDateInput.addEventListener('blur', saveOnBlurOrEnter);
@@ -635,15 +730,14 @@
 
             textEditInput.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') { e.preventDefault(); saveOnBlurOrEnter(e); } 
-                else if (e.key === 'Escape') { saveEdit(li, textEditInput, todoId, true); } // Pass true for isCancelled
+                else if (e.key === 'Escape') { saveEdit(li, textEditInput, todoId, true); } 
             });
-            // Allow Esc on date/priority inputs to also cancel
             editDueDateInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') saveEdit(li, textEditInput, todoId, true); });
             editPriorityInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') saveEdit(li, textEditInput, todoId, true); });
         }
 
-        function saveEdit(li, textInput, todoId, isCancelled) { // textInput is the main text edit field
-             if (currentlyEditing !== todoId && !isCancelled) return; // Only proceed if it's the current edit or cancelling
+        function saveEdit(li, textInput, todoId, isCancelled) { 
+             if (currentlyEditing !== todoId && !isCancelled) return; 
 
              const textSpanToUnhide = li.querySelector('.todo-text'); 
              const actionButtonsToUnhide = li.querySelector('.flex-shrink-0'); 
@@ -652,13 +746,16 @@
              const editDueDateInput = editWrapper ? editWrapper.querySelector('#editDueDateInput') : null;
              const editPriorityInput = editWrapper ? editWrapper.querySelector('#editPriorityInput') : null;
 
-             const newText = textInput.value.trim(); // Use the passed textInput for newText
+             const newText = textInput.value.trim(); 
              const newDueDate = editDueDateInput ? (editDueDateInput.value || null) : null;
              let newPriority = editPriorityInput ? parseInt(editPriorityInput.value, 10) : null;
             
              if (newPriority !== null && (isNaN(newPriority) || ![1,2,3].includes(newPriority))) {
                newPriority = null; 
              }
+            
+             const editRecurrencePanelId = `editRecurrenceOptions_${todoId}`;
+             const newRecurrence = getRecurrenceDataFromPanel(editRecurrencePanelId);
 
             if(editWrapper) editWrapper.remove();
 
@@ -667,9 +764,10 @@
             li.classList.remove('editing');
 
             const isCompleted = li.classList.contains('completed');
-            li.draggable = currentSortOrder === 'default' && !isCompleted; 
-            li.style.cursor = (currentSortOrder === 'default' && !isCompleted) ? 'grab' : 'default';
+            li.draggable = currentSortOrder === 'default' && !isCompleted && (parseInt(li.dataset.level) || 0) === 0; 
+            li.style.cursor = (li.draggable) ? 'grab' : 'default';
             currentlyEditing = null; 
+            document.removeEventListener('click', outsideClickListener, true); 
 
             if (isCancelled) return;
 
@@ -695,6 +793,11 @@
                updatedProperties.priority = newPriority;
                hasChanges = true;
             }
+            if (JSON.stringify(newRecurrence) !== JSON.stringify(originalTaskData.recurrence)) {
+                updatedProperties.recurrence = newRecurrence;
+                hasChanges = true;
+            }
+
 
             if (hasChanges) {
                 if (updatedProperties.text !== undefined && textSpanToUnhide) {
@@ -723,6 +826,21 @@
                    else if (updatedProperties.priority === 3) li.classList.add('priority-high');
                    else li.classList.add('priority-medium');
                 }
+                // Visual update for recurrence change on the task item itself
+                let recurrenceSpan = li.querySelector('.task-recurrence-info');
+                if (updatedProperties.recurrence !== undefined) {
+                    const summary = getRecurrenceSummary(updatedProperties.recurrence);
+                    if (summary) {
+                        if (!recurrenceSpan) {
+                            recurrenceSpan = document.createElement('span');
+                            recurrenceSpan.classList.add('task-recurrence-info', 'text-xs', 'text-blue-500', 'dark:text-blue-400', 'ml-2', 'italic');
+                            (dueDateSpan || textSpanToUnhide || li.querySelector('.checkbox-icon')).after(recurrenceSpan);
+                        }
+                        recurrenceSpan.textContent = summary;
+                    } else if (recurrenceSpan) {
+                        recurrenceSpan.remove();
+                    }
+                }
                 updateTodoInStorage(todoId, updatedProperties); 
             }
         }
@@ -732,14 +850,58 @@
         function toggleComplete(todoId, li, checkbox) {
             const isCompleted = !li.classList.contains('completed'); 
             li.classList.toggle('completed', isCompleted); li.dataset.completed = isCompleted; checkbox.setAttribute('aria-checked', isCompleted); 
-            li.draggable = currentSortOrder === 'default' && !isCompleted; // Update draggable state
-            li.style.cursor = (currentSortOrder === 'default' && !isCompleted) ? 'grab' : 'default';
-            if(isCompleted && li.classList.contains('editing')) { // If task is completed while editing, cancel edit
+            li.draggable = currentSortOrder === 'default' && !isCompleted && (parseInt(li.dataset.level) || 0) === 0; 
+            li.style.cursor = (li.draggable) ? 'grab' : 'default';
+            
+            if(isCompleted && li.classList.contains('editing')) { 
                  const textEditInput = li.querySelector('.edit-input');
-                 if(textEditInput) saveEdit(li, textEditInput, todoId, true); // Cancel the edit
+                 if(textEditInput) saveEdit(li, textEditInput, todoId, true); 
             }
-            updateTodoInStorage(todoId, { completed: isCompleted });
-            applyFiltersAndSearch(); updateTaskCount(); updateClearButtonVisibility(); 
+            
+            // Recurrence Logic for completing a task
+            if (isCompleted) {
+                let todos = getTodosFromStorage(); // Get a mutable copy of all todos
+                const currentTaskIndex = todos.findIndex(t => t.id === todoId);
+                if (currentTaskIndex === -1) {
+                    console.error("Task to complete not found in storage.");
+                    return; // Should not happen
+                }
+                const currentTask = { ...todos[currentTaskIndex] }; // Work with a copy of the current task
+
+                if (currentTask.recurrence && currentTask.recurrence.type !== 'none' && currentTask.dueDate) {
+                    const nextInstanceDueDate = calculateNextDueDate(currentTask.dueDate, currentTask.recurrence);
+                    
+                    if (nextInstanceDueDate) {
+                        const nextInstanceTodo = {
+                            ...currentTask, // text, priority, parentId, level, etc.
+                            id: Date.now(), 
+                            completed: false, 
+                            dueDate: nextInstanceDueDate, 
+                            recurrence: JSON.parse(JSON.stringify(currentTask.recurrence)), 
+                            starred: false 
+                        };
+                        
+                        todos[currentTaskIndex] = { ...currentTask, completed: true, recurrence: null };
+                        todos.push(nextInstanceTodo);
+                        
+                        saveTodosToStorage(todos); 
+                        loadTodos(); 
+                        return; 
+                    } else {
+                        todos[currentTaskIndex] = { ...currentTask, completed: true, recurrence: null };
+                        saveTodosToStorage(todos);
+                    }
+                } else {
+                    todos[currentTaskIndex] = { ...currentTask, completed: true };
+                    saveTodosToStorage(todos);
+                }
+            } else {
+                updateTodoInStorage(todoId, { completed: false });
+            }
+            
+            applyFiltersAndSearch(); 
+            updateTaskCount(); 
+            updateClearButtonVisibility(); 
         }
 
         function toggleStar(todoId, li, starBtn) {
@@ -756,19 +918,26 @@
                 liToDelete.classList.add('deleting');
                 liToDelete.addEventListener('animationend', () => {
                     liToDelete.remove();
-                    const todos = getTodosFromStorage().filter(todo => todo.id !== todoId);
+                    let todos = getTodosFromStorage();
+                    const idsToDelete = [todoId];
+                    function collectChildren(parentId) {
+                        const children = todos.filter(t => t.parentId === parentId);
+                        children.forEach(child => {
+                            idsToDelete.push(child.id);
+                            collectChildren(child.id); 
+                        });
+                    }
+                    collectChildren(todoId);
+                    
+                    todos = todos.filter(todo => !idsToDelete.includes(todo.id));
                     saveTodosToStorage(todos);
-                    applyFiltersAndSearch(); 
-                    updateTaskCount(); 
-                    updateClearButtonVisibility(); 
+                    loadTodos(); 
                 }, { once: true });
             } else {
                  console.warn("Delete failed: Element not found visually:", todoId);
-                 const todos = getTodosFromStorage().filter(todo => todo.id !== todoId);
+                 const todos = getTodosFromStorage().filter(todo => todo.id !== todoId); 
                  saveTodosToStorage(todos);
-                 applyFiltersAndSearch(); 
-                 updateTaskCount(); 
-                 updateClearButtonVisibility();
+                 loadTodos();
             }
         }
 
@@ -800,9 +969,7 @@
                 });
                 setTimeout(() => { 
                     saveTodosToStorage(activeTodos); 
-                    applyFiltersAndSearch(); 
-                    updateTaskCount(); 
-                    updateClearButtonVisibility();
+                    loadTodos();
                 }, 50); 
             }
             hideClearConfirmationModal(); 
@@ -945,7 +1112,7 @@
         // --- Drag & Drop Handlers ---
         function handleDragStart(e) {
             const target = e.target;
-            if (target.classList.contains('completed') || target.classList.contains('editing') || e.target.closest('button, input, .checkbox-icon, .edit-input, .edit-due-date-input, .edit-priority-select')) {
+            if (currentSortOrder !== 'default' || (parseInt(target.dataset.level) || 0) > 0 || target.classList.contains('completed') || target.classList.contains('editing') || e.target.closest('button, input, .checkbox-icon, .edit-controls-wrapper')) {
                 e.preventDefault(); return;
             }
             draggedItem = target; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', draggedItem.dataset.id); 
@@ -955,7 +1122,9 @@
         function handleDragOver(e) {
             e.preventDefault(); e.dataTransfer.dropEffect = 'move'; 
             const targetItem = e.target.closest('li[draggable="true"]'); 
-            if (!targetItem || targetItem === draggedItem) { clearDragOverIndicators(); return; }
+            if (!targetItem || targetItem === draggedItem || (parseInt(targetItem.dataset.level) || 0) > 0) { 
+                 clearDragOverIndicators(); return; 
+            }
              const rect = targetItem.getBoundingClientRect(); const midpoint = rect.top + rect.height / 2; const isOverTopHalf = e.clientY < midpoint; 
              clearDragOverIndicators(targetItem); 
              if (isOverTopHalf) { targetItem.classList.remove('drag-over-bottom'); targetItem.classList.add('drag-over-top'); } 
@@ -970,7 +1139,9 @@
         function handleDrop(e) {
             e.preventDefault(); 
             const targetItem = e.target.closest('li[draggable="true"]');
-            if (!targetItem || !draggedItem || targetItem === draggedItem) { clearDragOverIndicators(); return; }
+            if (!targetItem || !draggedItem || targetItem === draggedItem || (parseInt(targetItem.dataset.level) || 0) > 0) { 
+                clearDragOverIndicators(); return; 
+            }
             const dropBefore = targetItem.classList.contains('drag-over-top');
             if (dropBefore) { todoList.insertBefore(draggedItem, targetItem); } 
             else { todoList.insertBefore(draggedItem, targetItem.nextSibling); }
@@ -980,14 +1151,201 @@
             }
         }
         function clearDragOverIndicators(exceptItem = null) { document.querySelectorAll('#todoList li').forEach(li => { if (li !== exceptItem) { li.classList.remove('drag-over-top', 'drag-over-bottom'); } }); }
+        
         function updateStorageOrder() { 
             const listItems = Array.from(todoList.querySelectorAll('li'));
-            const orderedIds = listItems.map(li => Number(li.dataset.id));
+            const topLevelItemIds = listItems
+                .filter(item => (parseInt(item.dataset.level) || 0) === 0)
+                .map(li => Number(li.dataset.id));
+            
             const currentTodos = getTodosFromStorage();
-            const orderedTodos = orderedIds.map(id => currentTodos.find(todo => todo.id === id)).filter(Boolean); 
-            if (orderedTodos.length === currentTodos.length) { saveTodosToStorage(orderedTodos); } 
-            else { console.error("Error updating storage order: Mismatch in todo count."); }
+            let orderedStorageTodos = [];
+            const processedIds = new Set();
+
+            topLevelItemIds.forEach(id => {
+                const task = currentTodos.find(t => t.id === id);
+                if (task) {
+                    orderedStorageTodos.push(task);
+                    processedIds.add(id);
+                }
+            });
+
+            currentTodos.forEach(task => {
+                if (!processedIds.has(task.id)) {
+                    orderedStorageTodos.push(task);
+                }
+            });
+            
+            if (orderedStorageTodos.length === currentTodos.length) { 
+                saveTodosToStorage(orderedStorageTodos); 
+            } else { 
+                console.warn("Storage order update mismatch. Saving currentTodos as fallback.", currentTodos.length, orderedStorageTodos.length);
+                saveTodosToStorage(currentTodos); 
+            }
         }
+
+        // --- Date Formatting Helper ---
+        function formatDateISO(date) { // Ensures date is valid and returns YYYY-MM-DD
+            if (!(date instanceof Date) || isNaN(date.getTime())) return null;
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // --- Recurrence Logic ---
+        function calculateNextDueDate(taskDateStr, recurrenceRule) {
+            if (!taskDateStr || !recurrenceRule || !recurrenceRule.type || recurrenceRule.type === 'none') {
+                return null;
+            }
+            const parts = taskDateStr.split('-');
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1; 
+            const day = parseInt(parts[2], 10);
+
+            if (isNaN(year) || isNaN(month) || isNaN(day)) return null;
+            const currentDate = new Date(year, month, day); 
+            if (isNaN(currentDate.getTime())) return null;
+
+            let nextDate = new Date(currentDate.getTime()); 
+
+            switch (recurrenceRule.type) {
+                case 'daily':
+                    nextDate.setDate(currentDate.getDate() + 1);
+                    break;
+                case 'weekly':
+                     // If specific days are set for weekly, find the next occurrence.
+                    if (recurrenceRule.daysOfWeek && Array.isArray(recurrenceRule.daysOfWeek) && recurrenceRule.daysOfWeek.length > 0) {
+                        const sortedRuleDays = [...recurrenceRule.daysOfWeek].sort((a, b) => a - b);
+                        // Start checking from the day AFTER the current due date
+                        nextDate.setDate(currentDate.getDate() + 1); 
+                        
+                        for (let i = 0; i < 7; i++) { // Check next 7 days
+                            let dayOfWeek = nextDate.getDay(); // 0 (Sun) - 6 (Sat)
+                            if (sortedRuleDays.includes(dayOfWeek)) {
+                                return formatDateISO(nextDate);
+                            }
+                            nextDate.setDate(nextDate.getDate() + 1);
+                        }
+                        // Fallback if no day found in next 7 days (e.g. rule changed, or date is far in future)
+                        // This part of the logic might need refinement if a selected day is >7 days away
+                        // For now, it will just find the next valid day in sequence.
+                        console.warn("Could not find next weekly day within 7 days. Defaulting to +7 days from original date.");
+                        nextDate = new Date(currentDate.getTime()); // Reset to original date
+                        nextDate.setDate(currentDate.getDate() + 7); // Fallback to simple +7 days
+                    } else { // Fallback if daysOfWeek is not set for weekly (treat as simple +7)
+                        nextDate.setDate(currentDate.getDate() + 7);
+                    }
+                    break;
+                case 'monthly':
+                    const originalMonthDay = currentDate.getDate();
+                    nextDate.setDate(1); 
+                    nextDate.setMonth(currentDate.getMonth() + 1); 
+                    const daysInNextMonth = new Date(nextDate.getFullYear(), nextDate.getMonth() + 1, 0).getDate();
+                    nextDate.setDate(Math.min(originalMonthDay, daysInNextMonth));
+                    break;
+                case 'specific_days':
+                    if (!recurrenceRule.daysOfWeek || !Array.isArray(recurrenceRule.daysOfWeek) || recurrenceRule.daysOfWeek.length === 0) {
+                        console.warn("Invalid or empty daysOfWeek for 'specific_days' recurrence.");
+                        return null;
+                    }
+                    const sortedDays = [...recurrenceRule.daysOfWeek].sort((a, b) => a - b);
+                    let tempNextDate = new Date(currentDate.getTime()); 
+                    
+                    for (let i = 0; i < 366 ; i++) { 
+                        tempNextDate.setDate(tempNextDate.getDate() + 1); // Increment first
+                        const dayOfWeek = tempNextDate.getDay(); 
+                        if (sortedDays.includes(dayOfWeek)) {
+                            return formatDateISO(tempNextDate);
+                        }
+                    }
+                    console.warn("Could not find next specific day within a year for 'specific_days'.");
+                    return null; 
+                default:
+                    console.warn("Unknown recurrence type:", recurrenceRule.type);
+                    return null;
+            }
+            return formatDateISO(nextDate);
+        }
+
+
+        // --- Recurrence Summary Helper ---
+        function getRecurrenceSummary(recurrenceRule) {
+            if (!recurrenceRule || recurrenceRule.type === 'none') {
+                return '';
+            }
+
+            const type = recurrenceRule.type;
+            let summary = `Recurs ${type}`;
+
+            if (type === 'weekly' || type === 'specific_days') { // Consolidate for display
+                if (recurrenceRule.daysOfWeek && recurrenceRule.daysOfWeek.length > 0) {
+                    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                    const selectedDayNames = recurrenceRule.daysOfWeek
+                        .map(dayIndex => dayNames[dayIndex])
+                        .join(', ');
+                    summary += ` on ${selectedDayNames}`;
+                } else {
+                    summary = `Recurs ${type} (no days selected)`; 
+                }
+            } else if (type === 'monthly') {
+                // Future: summary += ` on the ${recurrenceRule.dayOfMonth}${getDaySuffix(recurrenceRule.dayOfMonth)}`;
+            }
+            return summary;
+        }
+        /* // Helper for day suffix (e.g., 1st, 2nd, 3rd, 4th) - if needed for monthly
+        function getDaySuffix(day) {
+            if (day > 3 && day < 21) return 'th';
+            switch (day % 10) {
+                case 1:  return "st";
+                case 2:  return "nd";
+                case 3:  return "rd";
+                default: return "th";
+            }
+        }*/
+
+
+        // --- Task Hierarchy Building ---
+        function buildHierarchicalTaskArray(allTasks, parentId = null, level = 0) {
+            let result = [];
+            const children = allTasks.filter(task => task.parentId === parentId);
+            
+            if (currentSortOrder !== 'default') {
+                 children.sort(sortTasksLogic); 
+            }
+
+            children.forEach(task => {
+                task.level = level; 
+                result.push(task);
+                result = result.concat(buildHierarchicalTaskArray(allTasks, task.id, level + 1));
+            });
+            return result;
+        }
+        
+        function sortTasksLogic(a,b){ 
+             switch (currentSortOrder) {
+                case 'dueDateAsc': 
+                    if (a.dueDate === b.dueDate) return 0; 
+                    if (!a.dueDate) return 1; 
+                    if (!b.dueDate) return -1;
+                    return new Date(a.dueDate) - new Date(b.dueDate);
+                case 'dueDateDesc': 
+                    if (a.dueDate === b.dueDate) return 0;
+                    if (!a.dueDate) return 1;
+                    if (!b.dueDate) return -1;
+                    return new Date(b.dueDate) - new Date(a.dueDate);
+                case 'priorityDesc': 
+                    return (b.priority || 0) - (a.priority || 0);
+                case 'priorityAsc': 
+                    return (a.priority || 0) - (b.priority || 0);
+                case 'nameAZ':
+                    return a.text.toLowerCase().localeCompare(b.text.toLowerCase());
+                case 'nameZA':
+                    return b.text.toLowerCase().localeCompare(a.text.toLowerCase());
+                default: return 0; 
+            }
+        }
+
 
         // --- Local Storage Functions ---
         function getTodosFromStorage() {
@@ -1000,7 +1358,10 @@
                     id: todo.id ?? Date.now(), 
                     starred: todo.starred ?? false,
                     dueDate: todo.dueDate ?? null,          
-                    priority: todo.priority ?? 2          
+                    priority: todo.priority ?? 2,
+                    parentId: todo.parentId ?? null,       
+                    level: todo.level ?? 0,
+                    recurrence: todo.recurrence ?? null    
                 })).filter(todo => todo.id && typeof todo.text === 'string'); 
             } catch (e) { console.error("Error reading todos from localStorage:", e); return []; }
         }
@@ -1031,41 +1392,138 @@
         }
 
         function loadTodos() {
-            let todos = getTodosFromStorage(); 
+            let allTasks = getTodosFromStorage(); 
             
             if (currentSortOrder !== 'default') {
-                todos.sort((a, b) => {
-                    switch (currentSortOrder) {
-                        case 'dueDateAsc': 
-                            if (!a.dueDate) return 1; 
-                            if (!b.dueDate) return -1;
-                            return new Date(a.dueDate) - new Date(b.dueDate);
-                        case 'dueDateDesc': 
-                            if (!a.dueDate) return 1;
-                            if (!b.dueDate) return -1;
-                            return new Date(b.dueDate) - new Date(a.dueDate);
-                        case 'priorityDesc': 
-                            return (b.priority || 0) - (a.priority || 0);
-                        case 'priorityAsc': 
-                            return (a.priority || 0) - (b.priority || 0);
-                        case 'nameAZ':
-                            return a.text.toLowerCase().localeCompare(b.text.toLowerCase());
-                        case 'nameZA':
-                            return b.text.toLowerCase().localeCompare(a.text.toLowerCase());
-                        default: return 0;
-                    }
-                });
+                allTasks.sort(sortTasksLogic);
             }
+            
+            const topLevelTasks = allTasks.filter(task => task.parentId === null);
+            
+            let hierarchicallyOrderedTasks = [];
+            topLevelTasks.forEach(topTask => {
+                // topTask.level = 0; // Level is set by buildHierarchicalTaskArray starting from root
+                hierarchicallyOrderedTasks = hierarchicallyOrderedTasks.concat(
+                    buildHierarchicalTaskArray(allTasks, topTask.id, 0, topTask) // Pass topTask itself
+                );
+            });
+            // A slightly different approach for buildHierarchicalTaskArray to include the parent itself
+            // Or, more simply:
+            hierarchicallyOrderedTasks = buildHierarchicalTaskArray(allTasks, null, 0);
+
 
             todoList.innerHTML = ''; 
-            todos.forEach(todo => renderTodoItem(todo)); 
+            hierarchicallyOrderedTasks.forEach(todo => renderTodoItem(todo)); 
             
             applyFiltersAndSearch(); 
             updateTaskCount(); 
             updateClearButtonVisibility(); 
         }
 
+        // --- Recurrence UI Management ---
+        function buildRecurrenceFormFields(panelId, recurrenceData = null) {
+            const panel = document.getElementById(panelId);
+            if (!panel) return;
+
+            panel.innerHTML = `
+                <div class="flex items-center mb-2">
+                    <label for="${panelId}_type" class="mr-2">Repeats:</label>
+                    <select id="${panelId}_type" class="border border-input p-1 rounded text-sm">
+                        <option value="none">None</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <!-- <option value="monthly">Monthly</option> -->
+                        <option value="specific_days">Specific Days</option> <!-- Added back for UI consistency -->
+                    </select>
+                </div>
+                <div id="${panelId}_daysOfWeek" class="recurrence-days-of-week hidden">
+                    <span>On:</span>
+                    ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => `
+                        <label class="ml-2"><input type="checkbox" name="${panelId}_day" value="${index}"> ${day}</label>
+                    `).join('')}
+                </div>
+                <div class="mt-3 flex justify-end">
+                     <button type="button" id="${panelId}_clear" class="btn-text text-xs text-red-500 mr-2">Clear Recurrence</button>
+                </div>
+            `;
+
+            const typeSelect = panel.querySelector(`#${panelId}_type`);
+            const daysOfWeekDiv = panel.querySelector(`#${panelId}_daysOfWeek`);
+            
+            typeSelect.onchange = () => {
+                // Show daysOfWeekDiv if type is 'weekly' OR 'specific_days'
+                daysOfWeekDiv.classList.toggle('hidden', !['weekly', 'specific_days'].includes(typeSelect.value));
+            };
+            
+            if (recurrenceData) {
+                typeSelect.value = recurrenceData.type || 'none';
+                if (['weekly', 'specific_days'].includes(recurrenceData.type)) {
+                    if (recurrenceData.daysOfWeek && Array.isArray(recurrenceData.daysOfWeek)) {
+                        recurrenceData.daysOfWeek.forEach(dayIndex => {
+                            const checkbox = panel.querySelector(`input[name="${panelId}_day"][value="${dayIndex}"]`);
+                            if (checkbox) checkbox.checked = true;
+                        });
+                    }
+                }
+            }
+            typeSelect.onchange(); 
+
+            const clearBtn = panel.querySelector(`#${panelId}_clear`);
+            clearBtn.onclick = () => {
+                typeSelect.value = 'none';
+                panel.querySelectorAll(`input[name="${panelId}_day"]`).forEach(cb => cb.checked = false);
+                typeSelect.onchange(); 
+                if(panelId.startsWith('editRecurrenceOptions_')) { 
+                    const todoId = parseInt(panelId.split('_')[1]);
+                    const li = todoList.querySelector(`li[data-id="${todoId}"]`);
+                    const textInput = li?.querySelector('.edit-input'); 
+                    if (li && textInput) saveEdit(li, textInput, todoId, false);
+                }
+            };
+        }
+
+        function toggleRecurrencePanel(panelId, todoIdForEdit = null) {
+            const panel = document.getElementById(panelId);
+            if (!panel) return;
+            const isHidden = panel.classList.toggle('hidden');
+            if (!isHidden) { 
+                let taskRecurrenceData = null;
+                if (todoIdForEdit !== null) { 
+                    const task = getTodosFromStorage().find(t => t.id === todoIdForEdit);
+                    taskRecurrenceData = task ? task.recurrence : null;
+                }
+                buildRecurrenceFormFields(panelId, taskRecurrenceData);
+            }
+        }
+
+        function getRecurrenceDataFromPanel(panelId) {
+            const panel = document.getElementById(panelId);
+            if (!panel || panel.classList.contains('hidden')) return null;
+
+            const type = panel.querySelector(`#${panelId}_type`).value;
+            if (type === 'none') return null;
+
+            const recurrence = { type: type }; 
+
+            if (type === 'weekly' || type === 'specific_days') { // Collect daysOfWeek for both
+                recurrence.daysOfWeek = Array.from(panel.querySelectorAll(`input[name="${panelId}_day"]:checked`))
+                                           .map(cb => parseInt(cb.value));
+                if(recurrence.daysOfWeek.length === 0) return null; // Requires at least one day if type is weekly/specific
+            }
+            return recurrence;
+        }
+
+        function collectRecurrenceData(sourceType, entityId = null) { 
+            if (sourceType === 'main') {
+                return getRecurrenceDataFromPanel('mainRecurrenceOptions');
+            } else if (sourceType === 'edit' && entityId !== null) {
+                return getRecurrenceDataFromPanel(`editRecurrenceOptions_${entityId}`);
+            }
+            return null;
+        }
     </script>
 
 </body>
 </html>
+
+[end of index.html]
