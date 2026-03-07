@@ -1,0 +1,12 @@
+{
+  "name": "todo-list-v4",
+  "version": "1.0.0",
+  "description": "Simple To-Do List App with Recurrence",
+  "main": "recurrence.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
