@@ -1239,16 +1239,14 @@
         
         function sortTasksLogic(a,b){ 
              switch (currentSortOrder) {
-                case 'dueDateAsc': 
+                case 'dueDateAsc':
+                case 'dueDateDesc':
                     if (a.dueDate === b.dueDate) return 0; 
                     if (!a.dueDate) return 1; 
                     if (!b.dueDate) return -1;
-                    return new Date(a.dueDate) - new Date(b.dueDate);
-                case 'dueDateDesc': 
-                    if (a.dueDate === b.dueDate) return 0;
-                    if (!a.dueDate) return 1;
-                    if (!b.dueDate) return -1;
-                    return new Date(b.dueDate) - new Date(a.dueDate);
+                    return currentSortOrder === 'dueDateAsc'
+                        ? new Date(a.dueDate) - new Date(b.dueDate)
+                        : new Date(b.dueDate) - new Date(a.dueDate);
                 case 'priorityDesc': 
                     return (b.priority || 0) - (a.priority || 0);
                 case 'priorityAsc': 
