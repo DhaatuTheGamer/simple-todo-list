@@ -1016,12 +1016,15 @@
         function applyFiltersAndSearch() { 
             const listItems = todoList.querySelectorAll('li'); 
             const searchTerm = currentSearchTerm; 
+            const allTodos = getTodosFromStorage();
 
-            listItems.forEach(li => {
-                const taskText = li.querySelector('.todo-text')?.textContent.toLowerCase() || '';
-                const isStarred = li.dataset.starred === 'true'; 
-                const isCompleted = li.dataset.completed === 'true'; 
-                
+            const hideMap = {};
+            for (let i = 0; i < allTodos.length; i++) {
+                const todo = allTodos[i];
+                const taskText = (todo.text || '').toLowerCase();
+                const isStarred = todo.starred === true;
+                const isCompleted = todo.completed === true;
+
                 let matchesFilter = true; 
                 switch (currentFilter) {
                     case 'starred': matchesFilter = isStarred; break; 
@@ -1031,9 +1034,17 @@
                 }
 
                 const matchesSearch = searchTerm === '' || taskText.includes(searchTerm);
-                
-                li.classList.toggle('hidden', !(matchesFilter && matchesSearch)); 
-            });
+                hideMap[todo.id] = !(matchesFilter && matchesSearch);
+            }
+
+            for (let i = 0; i < listItems.length; i++) {
+                const li = listItems[i];
+                const hide = hideMap[li.dataset.id];
+                if (hide !== undefined) {
+                    li.classList.toggle('hidden', hide);
+                }
+            }
+
             updateEmptyMessageVisibility(); 
         }
 
