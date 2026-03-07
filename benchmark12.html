@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head></head>
+<body>
+<div id="todoList"></div>
+<script>
+    const todoList = document.getElementById('todoList');
+    const todos = [];
+    for(let i=0; i<10000; i++) {
+        todos.push({
+            id: i,
+            text: 'Task ' + i,
+            starred: i % 2 === 0,
+            completed: i % 3 === 0
+        });
+        const li = document.createElement('li');
+        li.dataset.id = i;
+        li.dataset.starred = i % 2 === 0;
+        li.dataset.completed = i % 3 === 0;
+        const textSpan = document.createElement('span');
+        textSpan.className = 'todo-text';
+        textSpan.textContent = 'Task ' + i;
+        li.appendChild(textSpan);
+        todoList.appendChild(li);
+    }
+    const currentFilter = 'starred';
+    const currentSearchTerm = 'task 5';
+
+    function getTodosFromStorage() {
+        return todos;
+    }
+
+    function originalApplyFiltersAndSearch() {
+        const listItems = todoList.querySelectorAll('li');
+        const searchTerm = currentSearchTerm;
+
+        listItems.forEach(li => {
+            const taskText = li.querySelector('.todo-text')?.textContent.toLowerCase() || '';
+            const isStarred = li.dataset.starred === 'true';
+            const isCompleted = li.dataset.completed === 'true';
+
+            let matchesFilter = true;
+            switch (currentFilter) {
+                case 'starred': matchesFilter = isStarred; break;
+                case 'active': matchesFilter = !isCompleted; break;
+                case 'completed': matchesFilter = isCompleted; break;
+                case 'all': default: matchesFilter = true; break;
+            }
+
+            const matchesSearch = searchTerm === '' || taskText.includes(searchTerm);
+
+            li.classList.toggle('hidden', !(matchesFilter && matchesSearch));
+        });
+    }
+
+    function optimizedApplyFiltersAndSearch() {
+        const listItems = todoList.querySelectorAll('li');
+        const searchTerm = currentSearchTerm;
+        const allTodos = getTodosFromStorage();
+
+        // Object is faster than Map string keys in Chrome sometimes
+        const hideMap = {};
+        for (let i = 0; i < allTodos.length; i++) {
+            const todo = allTodos[i];
+            const taskText = (todo.text || '').toLowerCase();
+            const isStarred = todo.starred === true;
+            const isCompleted = todo.completed === true;
+
+            let matchesFilter = true;
+            switch (currentFilter) {
+                case 'starred': matchesFilter = isStarred; break;
+                case 'active': matchesFilter = !isCompleted; break;
+                case 'completed': matchesFilter = isCompleted; break;
+                case 'all': default: matchesFilter = true; break;
+            }
+
+            const matchesSearch = searchTerm === '' || taskText.includes(searchTerm);
+            hideMap[todo.id] = !(matchesFilter && matchesSearch);
+        }
+
+        // Apply visibility
+        for (let i = 0; i < listItems.length; i++) {
+            const li = listItems[i];
+            const hide = hideMap[li.dataset.id];
+            if (hide !== undefined) {
+                li.classList.toggle('hidden', hide);
+            }
+        }
+    }
+
+    // Warmup
+    for(let i=0; i<10; i++) originalApplyFiltersAndSearch();
+
+    console.time('original');
+    for(let i=0; i<50; i++) originalApplyFiltersAndSearch();
+    console.timeEnd('original');
+
+    // Warmup
+    for(let i=0; i<10; i++) optimizedApplyFiltersAndSearch();
+
+    console.time('optimized');
+    for(let i=0; i<50; i++) optimizedApplyFiltersAndSearch();
+    console.timeEnd('optimized');
+
+</script>
+</body>
+</html>
