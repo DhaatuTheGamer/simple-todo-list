@@ -454,7 +454,6 @@
         todoList.addEventListener('dragstart', handleDragStart);     
         todoList.addEventListener('dragend', handleDragEnd);         
         todoList.addEventListener('dragover', handleDragOver);       
-        todoList.addEventListener('dragenter', handleDragEnter);     
         todoList.addEventListener('dragleave', handleDragLeave);     
         todoList.addEventListener('drop', handleDrop);               
 
@@ -1151,7 +1150,6 @@
              if (isOverTopHalf) { targetItem.classList.remove('drag-over-bottom'); targetItem.classList.add('drag-over-top'); } 
              else { targetItem.classList.remove('drag-over-top'); targetItem.classList.add('drag-over-bottom'); }
         }
-         function handleDragEnter(e) { /* Optional highlighting */ }
         function handleDragLeave(e) {
             const targetItem = e.target.closest('li');
             if (targetItem && !targetItem.contains(e.relatedTarget)) { targetItem.classList.remove('drag-over-top', 'drag-over-bottom'); }
@@ -1183,8 +1181,10 @@
             let orderedStorageTodos = [];
             const processedIds = new Set();
 
+            const currentTodosMap = new Map(currentTodos.map(t => [t.id, t]));
+
             topLevelItemIds.forEach(id => {
-                const task = currentTodos.find(t => t.id === id);
+                const task = currentTodosMap.get(id);
                 if (task) {
                     orderedStorageTodos.push(task);
                     processedIds.add(id);
@@ -1250,16 +1250,14 @@
         
         function sortTasksLogic(a,b){ 
              switch (currentSortOrder) {
-                case 'dueDateAsc': 
+                case 'dueDateAsc':
+                case 'dueDateDesc':
                     if (a.dueDate === b.dueDate) return 0; 
                     if (!a.dueDate) return 1; 
                     if (!b.dueDate) return -1;
-                    return new Date(a.dueDate) - new Date(b.dueDate);
-                case 'dueDateDesc': 
-                    if (a.dueDate === b.dueDate) return 0;
-                    if (!a.dueDate) return 1;
-                    if (!b.dueDate) return -1;
-                    return new Date(b.dueDate) - new Date(a.dueDate);
+                    return currentSortOrder === 'dueDateAsc'
+                        ? new Date(a.dueDate) - new Date(b.dueDate)
+                        : new Date(b.dueDate) - new Date(a.dueDate);
                 case 'priorityDesc': 
                     return (b.priority || 0) - (a.priority || 0);
                 case 'priorityAsc': 
@@ -1333,19 +1331,7 @@
                 allTasks.sort(sortTasksLogic);
             }
             
-            const topLevelTasks = allTasks.filter(task => task.parentId === null);
-            
-            let hierarchicallyOrderedTasks = [];
-            topLevelTasks.forEach(topTask => {
-                // topTask.level = 0; // Level is set by buildHierarchicalTaskArray starting from root
-                hierarchicallyOrderedTasks = hierarchicallyOrderedTasks.concat(
-                    buildHierarchicalTaskArray(allTasks, topTask.id, 0, topTask) // Pass topTask itself
-                );
-            });
-            // A slightly different approach for buildHierarchicalTaskArray to include the parent itself
-            // Or, more simply:
-            hierarchicallyOrderedTasks = buildHierarchicalTaskArray(allTasks, null, 0);
-
+            let hierarchicallyOrderedTasks = buildHierarchicalTaskArray(allTasks, null, 0);
 
             todoList.innerHTML = ''; 
             hierarchicallyOrderedTasks.forEach(todo => renderTodoItem(todo)); 
