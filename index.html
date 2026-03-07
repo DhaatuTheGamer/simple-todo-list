@@ -928,17 +928,31 @@
                 liToDelete.addEventListener('animationend', () => {
                     liToDelete.remove();
                     let todos = getTodosFromStorage();
-                    const idsToDelete = [todoId];
-                    function collectChildren(parentId) {
-                        const children = todos.filter(t => t.parentId === parentId);
-                        children.forEach(child => {
-                            idsToDelete.push(child.id);
-                            collectChildren(child.id); 
-                        });
+                    const idsToDelete = new Set([todoId]);
+
+                    const childrenMap = new Map();
+                    for (const todo of todos) {
+                        if (todo.parentId !== null) {
+                            let siblings = childrenMap.get(todo.parentId);
+                            if (!siblings) {
+                                siblings = [];
+                                childrenMap.set(todo.parentId, siblings);
+                            }
+                            siblings.push(todo);
+                        }
                     }
-                    collectChildren(todoId);
+
+                    const stack = [todoId];
+                    while (stack.length > 0) {
+                        const currentId = stack.pop();
+                        const children = childrenMap.get(currentId) || [];
+                        for (const child of children) {
+                            idsToDelete.add(child.id);
+                            stack.push(child.id);
+                        }
+                    }
                     
-                    todos = todos.filter(todo => !idsToDelete.includes(todo.id));
+                    todos = todos.filter(todo => !idsToDelete.has(todo.id));
                     saveTodosToStorage(todos);
                     loadTodos(); 
                 }, { once: true });
