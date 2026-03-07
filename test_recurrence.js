@@ -22,6 +22,7 @@ assertEqual(calculateNextDueDate('', { type: 'daily' }), null, 'null for empty d
 assertEqual(calculateNextDueDate('invalid-date', { type: 'daily' }), null, 'null for invalid date string format');
 assertEqual(calculateNextDueDate('2023-13-01', { type: 'daily' }), null, 'null for invalid month (13)');
 assertEqual(calculateNextDueDate('2023-10-32', { type: 'daily' }), null, 'null for invalid day (32)');
+assertEqual(calculateNextDueDate('abc-10-01', { type: 'daily' }), null, 'null for invalid year string');
 
 // --- 2. Daily Recurrence ---
 assertEqual(calculateNextDueDate('2023-10-01', { type: 'daily' }), '2023-10-02', 'Daily: next day');
@@ -63,6 +64,10 @@ assertEqual(calculateNextDueDate('2023-10-01', { type: 'specific_days', daysOfWe
 assertEqual(calculateNextDueDate('2023-10-01', { type: 'specific_days' }), null, 'SpecificDays: null for missing daysOfWeek');
 
 // --- 7. Edge Cases & Purity ---
+assertEqual(calculateNextDueDate('2023-10-01', { type: 'yearly' }), null, 'Unknown recurrence type: yearly');
+assertEqual(calculateNextDueDate('2023-10-01', { type: 'weekly', daysOfWeek: [9] }), '2023-10-08', 'Weekly fallback when day is not found within 7 days');
+assertEqual(calculateNextDueDate('2023-10-01', { type: 'specific_days', daysOfWeek: [9] }), null, 'Specific days fallback when day is not found within a year');
+
 const originalRule = { type: 'daily' };
 const originalRuleStr = JSON.stringify(originalRule);
 calculateNextDueDate('2023-10-01', originalRule);
