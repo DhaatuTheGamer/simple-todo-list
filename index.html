@@ -972,9 +972,10 @@
             const completedTodos = todos.filter(todo => todo.completed);
             const activeTodos = todos.filter(todo => !todo.completed); 
             if (completedTodos.length > 0) {
-                completedTodos.forEach(todo => {
-                    const li = todoList.querySelector(`li[data-id="${todo.id}"]`);
-                    if (li) { li.classList.add('deleting'); li.addEventListener('animationend', () => li.remove(), { once: true }); }
+                const completedItems = todoList.querySelectorAll('li.completed');
+                completedItems.forEach(li => {
+                    li.classList.add('deleting');
+                    li.addEventListener('animationend', () => li.remove(), { once: true });
                 });
                 setTimeout(() => { 
                     saveTodosToStorage(activeTodos); 
