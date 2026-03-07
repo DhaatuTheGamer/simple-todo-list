@@ -1318,23 +1318,7 @@
         function loadTodos() {
             let allTasks = getTodosFromStorage(); 
             
-            if (currentSortOrder !== 'default') {
-                allTasks.sort(sortTasksLogic);
-            }
-            
-            const topLevelTasks = allTasks.filter(task => task.parentId === null);
-            
-            let hierarchicallyOrderedTasks = [];
-            topLevelTasks.forEach(topTask => {
-                // topTask.level = 0; // Level is set by buildHierarchicalTaskArray starting from root
-                hierarchicallyOrderedTasks = hierarchicallyOrderedTasks.concat(
-                    buildHierarchicalTaskArray(allTasks, topTask.id, 0, topTask) // Pass topTask itself
-                );
-            });
-            // A slightly different approach for buildHierarchicalTaskArray to include the parent itself
-            // Or, more simply:
-            hierarchicallyOrderedTasks = buildHierarchicalTaskArray(allTasks, null, 0);
-
+            let hierarchicallyOrderedTasks = buildHierarchicalTaskArray(allTasks, null, 0);
 
             todoList.innerHTML = ''; 
             hierarchicallyOrderedTasks.forEach(todo => renderTodoItem(todo)); 
