@@ -453,7 +453,6 @@
         todoList.addEventListener('dragstart', handleDragStart);     
         todoList.addEventListener('dragend', handleDragEnd);         
         todoList.addEventListener('dragover', handleDragOver);       
-        todoList.addEventListener('dragenter', handleDragEnter);     
         todoList.addEventListener('dragleave', handleDragLeave);     
         todoList.addEventListener('drop', handleDrop);               
 
@@ -1139,7 +1138,6 @@
              if (isOverTopHalf) { targetItem.classList.remove('drag-over-bottom'); targetItem.classList.add('drag-over-top'); } 
              else { targetItem.classList.remove('drag-over-top'); targetItem.classList.add('drag-over-bottom'); }
         }
-         function handleDragEnter(e) { /* Optional highlighting */ }
         function handleDragLeave(e) {
             const targetItem = e.target.closest('li');
             if (targetItem && !targetItem.contains(e.relatedTarget)) { targetItem.classList.remove('drag-over-top', 'drag-over-bottom'); }
