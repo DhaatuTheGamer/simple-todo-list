@@ -1,4 +1,4 @@
-const { calculateNextDueDate } = require('./recurrence');
+const { calculateNextDueDate, formatDateISO } = require('./recurrence');
 
 function assertEqual(actual, expected, message) {
     if (actual !== expected) {
@@ -10,6 +10,19 @@ function assertEqual(actual, expected, message) {
         console.log(`PASSED: ${message}`);
     }
 }
+
+console.log('Running tests for formatDateISO...');
+assertEqual(formatDateISO(null), null, 'formatDateISO: null for null input');
+assertEqual(formatDateISO(undefined), null, 'formatDateISO: null for undefined input');
+assertEqual(formatDateISO('2023-10-01'), null, 'formatDateISO: null for string input');
+assertEqual(formatDateISO(1696118400000), null, 'formatDateISO: null for number input');
+assertEqual(formatDateISO({}), null, 'formatDateISO: null for object input');
+assertEqual(formatDateISO(new Date('invalid')), null, 'formatDateISO: null for invalid Date object');
+
+// Note: Date constructor takes month as 0-indexed
+assertEqual(formatDateISO(new Date(2023, 9, 1)), '2023-10-01', 'formatDateISO: valid date formatting (2023-10-01)');
+assertEqual(formatDateISO(new Date(2024, 11, 31)), '2024-12-31', 'formatDateISO: valid date formatting (2024-12-31)');
+assertEqual(formatDateISO(new Date(2000, 0, 5)), '2000-01-05', 'formatDateISO: valid date formatting (2000-01-05)');
 
 console.log('Running tests for calculateNextDueDate...');
 
