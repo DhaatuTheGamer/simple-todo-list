@@ -17,6 +17,47 @@ function formatDateISO(date) { // Ensures date is valid and returns YYYY-MM-DD
  * @param {Object} recurrenceRule
  * @returns {string|null} Next due date in YYYY-MM-DD format
  */
+function handleWeeklyRecurrence(currentDate, recurrenceRule) {
+    let nextDate = new Date(currentDate.getTime());
+    if (recurrenceRule.daysOfWeek && Array.isArray(recurrenceRule.daysOfWeek) && recurrenceRule.daysOfWeek.length > 0) {
+        const sortedRuleDays = [...recurrenceRule.daysOfWeek].sort((a, b) => a - b);
+        nextDate.setDate(currentDate.getDate() + 1);
+
+        for (let i = 0; i < 7; i++) {
+            let dayOfWeek = nextDate.getDay();
+            if (sortedRuleDays.includes(dayOfWeek)) {
+                return formatDateISO(nextDate);
+            }
+            nextDate.setDate(nextDate.getDate() + 1);
+        }
+        console.warn("Could not find next weekly day within 7 days. Defaulting to +7 days from original date.");
+        nextDate = new Date(currentDate.getTime());
+        nextDate.setDate(currentDate.getDate() + 7);
+    } else {
+        nextDate.setDate(currentDate.getDate() + 7);
+    }
+    return formatDateISO(nextDate);
+}
+
+function handleSpecificDaysRecurrence(currentDate, recurrenceRule) {
+    if (!recurrenceRule.daysOfWeek || !Array.isArray(recurrenceRule.daysOfWeek) || recurrenceRule.daysOfWeek.length === 0) {
+        console.warn("Invalid or empty daysOfWeek for 'specific_days' recurrence.");
+        return null;
+    }
+    const sortedDays = [...recurrenceRule.daysOfWeek].sort((a, b) => a - b);
+    let tempNextDate = new Date(currentDate.getTime());
+
+    for (let i = 0; i < 366 ; i++) {
+        tempNextDate.setDate(tempNextDate.getDate() + 1);
+        const dayOfWeek = tempNextDate.getDay();
+        if (sortedDays.includes(dayOfWeek)) {
+            return formatDateISO(tempNextDate);
+        }
+    }
+    console.warn("Could not find next specific day within a year for 'specific_days'.");
+    return null;
+}
+
 function calculateNextDueDate(taskDateStr, recurrenceRule) {
     if (!taskDateStr || !recurrenceRule || !recurrenceRule.type || recurrenceRule.type === 'none') {
         return null;
@@ -42,29 +83,7 @@ function calculateNextDueDate(taskDateStr, recurrenceRule) {
             nextDate.setDate(currentDate.getDate() + 1);
             break;
         case 'weekly':
-             // If specific days are set for weekly, find the next occurrence.
-            if (recurrenceRule.daysOfWeek && Array.isArray(recurrenceRule.daysOfWeek) && recurrenceRule.daysOfWeek.length > 0) {
-                const sortedRuleDays = [...recurrenceRule.daysOfWeek].sort((a, b) => a - b);
-                // Start checking from the day AFTER the current due date
-                nextDate.setDate(currentDate.getDate() + 1);
-
-                for (let i = 0; i < 7; i++) { // Check next 7 days
-                    let dayOfWeek = nextDate.getDay(); // 0 (Sun) - 6 (Sat)
-                    if (sortedRuleDays.includes(dayOfWeek)) {
-                        return formatDateISO(nextDate);
-                    }
-                    nextDate.setDate(nextDate.getDate() + 1);
-                }
-                // Fallback if no day found in next 7 days (e.g. rule changed, or date is far in future)
-                // This part of the logic might need refinement if a selected day is >7 days away
-                // For now, it will just find the next valid day in sequence.
-                console.warn("Could not find next weekly day within 7 days. Defaulting to +7 days from original date.");
-                nextDate = new Date(currentDate.getTime()); // Reset to original date
-                nextDate.setDate(currentDate.getDate() + 7); // Fallback to simple +7 days
-            } else { // Fallback if daysOfWeek is not set for weekly (treat as simple +7)
-                nextDate.setDate(currentDate.getDate() + 7);
-            }
-            break;
+            return handleWeeklyRecurrence(currentDate, recurrenceRule);
         case 'monthly':
             const originalMonthDay = currentDate.getDate();
             nextDate.setDate(1);
@@ -73,22 +92,7 @@ function calculateNextDueDate(taskDateStr, recurrenceRule) {
             nextDate.setDate(Math.min(originalMonthDay, daysInNextMonth));
             break;
         case 'specific_days':
-            if (!recurrenceRule.daysOfWeek || !Array.isArray(recurrenceRule.daysOfWeek) || recurrenceRule.daysOfWeek.length === 0) {
-                console.warn("Invalid or empty daysOfWeek for 'specific_days' recurrence.");
-                return null;
-            }
-            const sortedDays = [...recurrenceRule.daysOfWeek].sort((a, b) => a - b);
-            let tempNextDate = new Date(currentDate.getTime());
-
-            for (let i = 0; i < 366 ; i++) {
-                tempNextDate.setDate(tempNextDate.getDate() + 1); // Increment first
-                const dayOfWeek = tempNextDate.getDay();
-                if (sortedDays.includes(dayOfWeek)) {
-                    return formatDateISO(tempNextDate);
-                }
-            }
-            console.warn("Could not find next specific day within a year for 'specific_days'.");
-            return null;
+            return handleSpecificDaysRecurrence(currentDate, recurrenceRule);
         default:
             console.warn("Unknown recurrence type:", recurrenceRule.type);
             return null;
