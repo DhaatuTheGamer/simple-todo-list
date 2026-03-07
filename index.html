@@ -1433,31 +1433,73 @@
             const panel = document.getElementById(panelId);
             if (!panel) return;
 
-            panel.innerHTML = `
-                <div class="flex items-center mb-2">
-                    <label for="${panelId}_type" class="mr-2">Repeats:</label>
-                    <select id="${panelId}_type" class="border border-input p-1 rounded text-sm">
-                        <option value="none">None</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <!-- <option value="monthly">Monthly</option> -->
-                        <option value="specific_days">Specific Days</option> <!-- Added back for UI consistency -->
-                    </select>
-                </div>
-                <div id="${panelId}_daysOfWeek" class="recurrence-days-of-week hidden">
-                    <span>On:</span>
-                    ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => `
-                        <label class="ml-2"><input type="checkbox" name="${panelId}_day" value="${index}"> ${day}</label>
-                    `).join('')}
-                </div>
-                <div class="mt-3 flex justify-end">
-                     <button type="button" id="${panelId}_clear" class="btn-text text-xs text-red-500 mr-2">Clear Recurrence</button>
-                </div>
-            `;
+            panel.innerHTML = '';
 
-            const typeSelect = panel.querySelector(`#${panelId}_type`);
-            const daysOfWeekDiv = panel.querySelector(`#${panelId}_daysOfWeek`);
+            const typeDiv = document.createElement('div');
+            typeDiv.className = 'flex items-center mb-2';
+
+            const typeLabel = document.createElement('label');
+            typeLabel.setAttribute('for', `${panelId}_type`);
+            typeLabel.className = 'mr-2';
+            typeLabel.textContent = 'Repeats:';
+
+            const typeSelect = document.createElement('select');
+            typeSelect.id = `${panelId}_type`;
+            typeSelect.className = 'border border-input p-1 rounded text-sm';
+
+            const options = [
+                { value: 'none', text: 'None' },
+                { value: 'daily', text: 'Daily' },
+                { value: 'weekly', text: 'Weekly' },
+                { value: 'specific_days', text: 'Specific Days' }
+            ];
+
+            options.forEach(opt => {
+                const option = document.createElement('option');
+                option.value = opt.value;
+                option.textContent = opt.text;
+                typeSelect.appendChild(option);
+            });
+
+            typeDiv.appendChild(typeLabel);
+            typeDiv.appendChild(typeSelect);
+            panel.appendChild(typeDiv);
+
+            const daysOfWeekDiv = document.createElement('div');
+            daysOfWeekDiv.id = `${panelId}_daysOfWeek`;
+            daysOfWeekDiv.className = 'recurrence-days-of-week hidden';
+
+            const onSpan = document.createElement('span');
+            onSpan.textContent = 'On:';
+            daysOfWeekDiv.appendChild(onSpan);
+
+            ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach((day, index) => {
+                const label = document.createElement('label');
+                label.className = 'ml-2';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = `${panelId}_day`;
+                checkbox.value = index;
+
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(` ${day}`));
+                daysOfWeekDiv.appendChild(label);
+            });
+            panel.appendChild(daysOfWeekDiv);
+
+            const clearDiv = document.createElement('div');
+            clearDiv.className = 'mt-3 flex justify-end';
             
+            const clearBtn = document.createElement('button');
+            clearBtn.type = 'button';
+            clearBtn.id = `${panelId}_clear`;
+            clearBtn.className = 'btn-text text-xs text-red-500 mr-2';
+            clearBtn.textContent = 'Clear Recurrence';
+
+            clearDiv.appendChild(clearBtn);
+            panel.appendChild(clearDiv);
+
             typeSelect.onchange = () => {
                 // Show daysOfWeekDiv if type is 'weekly' OR 'specific_days'
                 daysOfWeekDiv.classList.toggle('hidden', !['weekly', 'specific_days'].includes(typeSelect.value));
@@ -1476,7 +1518,6 @@
             }
             typeSelect.onchange(); 
 
-            const clearBtn = panel.querySelector(`#${panelId}_clear`);
             clearBtn.onclick = () => {
                 typeSelect.value = 'none';
                 panel.querySelectorAll(`input[name="${panelId}_day"]`).forEach(cb => cb.checked = false);
