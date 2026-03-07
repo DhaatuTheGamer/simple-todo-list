@@ -1296,21 +1296,9 @@
                 } else {
                     summary = `Recurs ${type} (no days selected)`; 
                 }
-            } else if (type === 'monthly') {
-                // Future: summary += ` on the ${recurrenceRule.dayOfMonth}${getDaySuffix(recurrenceRule.dayOfMonth)}`;
             }
             return summary;
         }
-        /* // Helper for day suffix (e.g., 1st, 2nd, 3rd, 4th) - if needed for monthly
-        function getDaySuffix(day) {
-            if (day > 3 && day < 21) return 'th';
-            switch (day % 10) {
-                case 1:  return "st";
-                case 2:  return "nd";
-                case 3:  return "rd";
-                default: return "th";
-            }
-        }*/
 
 
         // --- Task Hierarchy Building ---
