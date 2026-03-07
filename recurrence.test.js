@@ -1,4 +1,25 @@
-const { calculateNextDueDate } = require('./recurrence');
+const { calculateNextDueDate, formatDateISO } = require('./recurrence');
+
+describe('formatDateISO', () => {
+    test('returns null for non-Date objects', () => {
+        expect(formatDateISO(null)).toBeNull();
+        expect(formatDateISO(undefined)).toBeNull();
+        expect(formatDateISO('2023-10-01')).toBeNull();
+        expect(formatDateISO(1696118400000)).toBeNull();
+        expect(formatDateISO({})).toBeNull();
+    });
+
+    test('returns null for invalid Date objects', () => {
+        expect(formatDateISO(new Date('invalid'))).toBeNull();
+    });
+
+    test('formats valid Date objects correctly', () => {
+        expect(formatDateISO(new Date(2023, 9, 1))).toBe('2023-10-01'); // Note: month is 0-indexed in Date constructor
+        expect(formatDateISO(new Date(2024, 11, 31))).toBe('2024-12-31');
+        expect(formatDateISO(new Date(2000, 0, 5))).toBe('2000-01-05');
+        expect(formatDateISO(new Date(1999, 10, 15))).toBe('1999-11-15');
+    });
+});
 
 describe('calculateNextDueDate', () => {
     test('returns null for missing or "none" recurrence type', () => {
