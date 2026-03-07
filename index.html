@@ -1171,8 +1171,10 @@
             let orderedStorageTodos = [];
             const processedIds = new Set();
 
+            const currentTodosMap = new Map(currentTodos.map(t => [t.id, t]));
+
             topLevelItemIds.forEach(id => {
-                const task = currentTodos.find(t => t.id === id);
+                const task = currentTodosMap.get(id);
                 if (task) {
                     orderedStorageTodos.push(task);
                     processedIds.add(id);
