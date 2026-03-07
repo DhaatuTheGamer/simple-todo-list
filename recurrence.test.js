@@ -12,12 +12,16 @@ describe('calculateNextDueDate', () => {
         expect(calculateNextDueDate('', rule)).toBeNull();
         expect(calculateNextDueDate('invalid-date', rule)).toBeNull();
         expect(calculateNextDueDate('2023-13-01', rule)).toBeNull(); // Invalid month
+        expect(calculateNextDueDate('2023-10-32', rule)).toBeNull(); // Invalid day
+        expect(calculateNextDueDate('abc-10-01', rule)).toBeNull(); // Invalid year string
     });
 
     test('calculates daily recurrence correctly', () => {
         const rule = { type: 'daily' };
         expect(calculateNextDueDate('2023-10-01', rule)).toBe('2023-10-02');
         expect(calculateNextDueDate('2023-12-31', rule)).toBe('2024-01-01');
+        expect(calculateNextDueDate('2024-02-28', rule)).toBe('2024-02-29'); // Leap year Feb 28 to 29
+        expect(calculateNextDueDate('2023-02-28', rule)).toBe('2023-03-01'); // Non-leap year Feb 28 to Mar 1
     });
 
     test('calculates weekly recurrence correctly (no days specified)', () => {
@@ -43,6 +47,7 @@ describe('calculateNextDueDate', () => {
         expect(calculateNextDueDate('2023-10-31', rule)).toBe('2023-11-30'); // Nov has only 30 days
         expect(calculateNextDueDate('2024-01-31', rule)).toBe('2024-02-29'); // Leap year
         expect(calculateNextDueDate('2023-01-31', rule)).toBe('2023-02-28'); // Non-leap year
+        expect(calculateNextDueDate('2023-12-15', rule)).toBe('2024-01-15'); // Year rollover
     });
 
     test('calculates specific_days recurrence correctly', () => {
@@ -61,5 +66,29 @@ describe('calculateNextDueDate', () => {
     test('handles year rollover for daily recurrence', () => {
         const rule = { type: 'daily' };
         expect(calculateNextDueDate('2023-12-31', rule)).toBe('2024-01-01');
+    });
+
+    test('returns null for unknown recurrence type', () => {
+        const rule = { type: 'yearly' }; // Unknown type
+        expect(calculateNextDueDate('2023-10-01', rule)).toBeNull();
+    });
+
+    test('handles weekly fallback when day is not found within 7 days', () => {
+        // Since we check the next 7 days, if we pass an invalid day like 9, it won't be found.
+        const rule = { type: 'weekly', daysOfWeek: [9] };
+        expect(calculateNextDueDate('2023-10-01', rule)).toBe('2023-10-08'); // Default to +7 days
+    });
+
+    test('handles specific_days fallback when day is not found within a year', () => {
+        // Similar to weekly fallback, if we pass an invalid day, it won't be found in 365 days.
+        const rule = { type: 'specific_days', daysOfWeek: [9] };
+        expect(calculateNextDueDate('2023-10-01', rule)).toBeNull();
+    });
+
+    test('does not mutate the recurrence rule object', () => {
+        const rule = { type: 'daily' };
+        const ruleStr = JSON.stringify(rule);
+        calculateNextDueDate('2023-10-01', rule);
+        expect(JSON.stringify(rule)).toBe(ruleStr);
     });
 });
