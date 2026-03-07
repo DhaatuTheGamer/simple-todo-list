@@ -1,0 +1,24 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "description": "This is a straightforward and easy-to-use To-Do List application created using basic web technologies: HTML, CSS (with Tailwind CSS for styling), and JavaScript. It helps you keep track of your tasks directly in your web browser. All tasks are saved in your browser's local storage, so they persist even if you close the browser window or refresh the page.",
+  "main": "test_recurrence_summary.js",
+  "scripts": {
+    "test": "node test_recurrence_summary.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DhaatuTheGamer/simple-todo-list.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/DhaatuTheGamer/simple-todo-list/issues"
+  },
+  "homepage": "https://github.com/DhaatuTheGamer/simple-todo-list#readme",
+  "dependencies": {
+    "jsdom": "^28.1.0"
+  }
+}
