@@ -414,6 +414,7 @@
         let isSidebarCollapsed = localStorage.getItem('sidebarCollapsed') === 'true'; 
         let currentlyEditing = null; 
         let draggedItem = null; 
+        let memoizedTodos = null;
 
         // --- Event Listeners (Initial Setup) ---
         addTodoBtn.addEventListener('click', addTodo); 
@@ -1344,27 +1345,36 @@
 
 
         // --- Local Storage Functions ---
+        function normalizeTodos(todos) {
+            return (Array.isArray(todos) ? todos : []).map(todo => ({
+                text: todo.text ?? 'Untitled Task',
+                completed: todo.completed ?? false,
+                id: todo.id ?? Date.now(),
+                starred: todo.starred ?? false,
+                dueDate: todo.dueDate ?? null,
+                priority: todo.priority ?? 2,
+                parentId: todo.parentId ?? null,
+                level: todo.level ?? 0,
+                recurrence: todo.recurrence ?? null
+            })).filter(todo => todo.id && typeof todo.text === 'string');
+        }
+
         function getTodosFromStorage() {
+            if (memoizedTodos) {
+                return [...memoizedTodos];
+            }
             try {
                 const todosString = localStorage.getItem('todos'); 
                 const todos = todosString ? JSON.parse(todosString) : []; 
-                return todos.map(todo => ({
-                    text: todo.text ?? 'Untitled Task', 
-                    completed: todo.completed ?? false, 
-                    id: todo.id ?? Date.now(), 
-                    starred: todo.starred ?? false,
-                    dueDate: todo.dueDate ?? null,          
-                    priority: todo.priority ?? 2,
-                    parentId: todo.parentId ?? null,       
-                    level: todo.level ?? 0,
-                    recurrence: todo.recurrence ?? null    
-                })).filter(todo => todo.id && typeof todo.text === 'string'); 
+                memoizedTodos = normalizeTodos(todos);
+                return [...memoizedTodos];
             } catch (e) { console.error("Error reading todos from localStorage:", e); return []; }
         }
 
         function saveTodosToStorage(todos) { 
             try { 
-                localStorage.setItem('todos', JSON.stringify(todos)); 
+                memoizedTodos = normalizeTodos(todos);
+                localStorage.setItem('todos', JSON.stringify(memoizedTodos));
             } catch (e) { 
                 console.error("Error saving todos to localStorage:", e); 
             } 
