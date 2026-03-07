@@ -9,6 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="recurrence.js"></script>
+    <script src="sort.js"></script>
     <style>
         /* --- Base font --- */
         body { font-family: 'Inter', sans-serif; }
@@ -1226,7 +1227,7 @@
             const children = allTasks.filter(task => task.parentId === parentId);
             
             if (currentSortOrder !== 'default') {
-                 children.sort(sortTasksLogic); 
+                 children.sort((a, b) => sortTasksLogic(a, b, currentSortOrder));
             }
 
             children.forEach(task => {
@@ -1235,30 +1236,6 @@
                 result = result.concat(buildHierarchicalTaskArray(allTasks, task.id, level + 1));
             });
             return result;
-        }
-        
-        function sortTasksLogic(a,b){ 
-             switch (currentSortOrder) {
-                case 'dueDateAsc': 
-                    if (a.dueDate === b.dueDate) return 0; 
-                    if (!a.dueDate) return 1; 
-                    if (!b.dueDate) return -1;
-                    return new Date(a.dueDate) - new Date(b.dueDate);
-                case 'dueDateDesc': 
-                    if (a.dueDate === b.dueDate) return 0;
-                    if (!a.dueDate) return 1;
-                    if (!b.dueDate) return -1;
-                    return new Date(b.dueDate) - new Date(a.dueDate);
-                case 'priorityDesc': 
-                    return (b.priority || 0) - (a.priority || 0);
-                case 'priorityAsc': 
-                    return (a.priority || 0) - (b.priority || 0);
-                case 'nameAZ':
-                    return a.text.toLowerCase().localeCompare(b.text.toLowerCase());
-                case 'nameZA':
-                    return b.text.toLowerCase().localeCompare(a.text.toLowerCase());
-                default: return 0; 
-            }
         }
 
 
@@ -1319,7 +1296,7 @@
             let allTasks = getTodosFromStorage(); 
             
             if (currentSortOrder !== 'default') {
-                allTasks.sort(sortTasksLogic);
+                allTasks.sort((a, b) => sortTasksLogic(a, b, currentSortOrder));
             }
             
             const topLevelTasks = allTasks.filter(task => task.parentId === null);
