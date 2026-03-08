@@ -1190,7 +1190,7 @@
                 updateStorageOrder(); 
             }
         }
-        function clearDragOverIndicators(exceptItem = null) { document.querySelectorAll('#todoList li').forEach(li => { if (li !== exceptItem) { li.classList.remove('drag-over-top', 'drag-over-bottom'); } }); }
+        function clearDragOverIndicators(exceptItem = null) { document.querySelectorAll('#todoList li.drag-over-top, #todoList li.drag-over-bottom').forEach(li => { if (li !== exceptItem) { li.classList.remove('drag-over-top', 'drag-over-bottom'); } }); }
         
         function updateStorageOrder() { 
             const listItems = Array.from(todoList.querySelectorAll('li'));
