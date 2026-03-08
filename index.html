@@ -745,6 +745,63 @@
             editPriorityInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') saveEdit(li, textEditInput, todoId, true); });
         }
 
+        function exitEditMode(li, editWrapper, textSpanToUnhide, actionButtonsToUnhide) {
+            if (editWrapper) editWrapper.remove();
+            if (textSpanToUnhide) textSpanToUnhide.classList.remove('hidden');
+            if (actionButtonsToUnhide) actionButtonsToUnhide.classList.remove('hidden');
+            li.classList.remove('editing');
+
+            const isCompleted = li.classList.contains('completed');
+            li.draggable = currentSortOrder === 'default' && !isCompleted && (parseInt(li.dataset.level) || 0) === 0;
+            li.style.cursor = (li.draggable) ? 'grab' : 'default';
+            currentlyEditing = null;
+            document.removeEventListener('click', outsideClickListener, true);
+        }
+
+        function applyTaskVisualUpdates(li, textSpanToUnhide, updatedProperties) {
+            if (updatedProperties.text !== undefined && textSpanToUnhide) {
+               textSpanToUnhide.textContent = updatedProperties.text;
+            }
+
+            let dueDateSpan = li.querySelector('.task-due-date');
+            if (updatedProperties.dueDate !== undefined) {
+                if (updatedProperties.dueDate) {
+                    if (!dueDateSpan) {
+                        dueDateSpan = document.createElement('span');
+                        dueDateSpan.classList.add('task-due-date', 'text-xs', 'text-meta', 'ml-2', 'whitespace-nowrap', 'pl-1', 'pr-1');
+                        if(textSpanToUnhide) textSpanToUnhide.after(dueDateSpan);
+                        else if(li.querySelector('.checkbox-icon')) li.querySelector('.checkbox-icon').after(dueDateSpan);
+                    }
+                    dueDateSpan.textContent = `Due: ${updatedProperties.dueDate}`;
+                } else if (dueDateSpan) {
+                    dueDateSpan.remove();
+                }
+            }
+
+            if (updatedProperties.priority !== undefined) {
+               li.dataset.priority = updatedProperties.priority;
+               li.classList.remove('priority-low', 'priority-medium', 'priority-high');
+               if (updatedProperties.priority === 1) li.classList.add('priority-low');
+               else if (updatedProperties.priority === 3) li.classList.add('priority-high');
+               else li.classList.add('priority-medium');
+            }
+
+            let recurrenceSpan = li.querySelector('.task-recurrence-info');
+            if (updatedProperties.recurrence !== undefined) {
+                const summary = getRecurrenceSummary(updatedProperties.recurrence);
+                if (summary) {
+                    if (!recurrenceSpan) {
+                        recurrenceSpan = document.createElement('span');
+                        recurrenceSpan.classList.add('task-recurrence-info', 'text-xs', 'text-blue-500', 'dark:text-blue-400', 'ml-2', 'italic');
+                        (dueDateSpan || textSpanToUnhide || li.querySelector('.checkbox-icon')).after(recurrenceSpan);
+                    }
+                    recurrenceSpan.textContent = summary;
+                } else if (recurrenceSpan) {
+                    recurrenceSpan.remove();
+                }
+            }
+        }
+
         function saveEdit(li, textInput, todoId, isCancelled) { 
              if (currentlyEditing !== todoId && !isCancelled) return; 
 
@@ -766,17 +823,7 @@
              const editRecurrencePanelId = `editRecurrenceOptions_${todoId}`;
              const newRecurrence = getRecurrenceDataFromPanel(editRecurrencePanelId);
 
-            if(editWrapper) editWrapper.remove();
-
-            if(textSpanToUnhide) textSpanToUnhide.classList.remove('hidden'); 
-            if(actionButtonsToUnhide) actionButtonsToUnhide.classList.remove('hidden');
-            li.classList.remove('editing');
-
-            const isCompleted = li.classList.contains('completed');
-            li.draggable = currentSortOrder === 'default' && !isCompleted && (parseInt(li.dataset.level) || 0) === 0; 
-            li.style.cursor = (li.draggable) ? 'grab' : 'default';
-            currentlyEditing = null; 
-            document.removeEventListener('click', outsideClickListener, true); 
+            exitEditMode(li, editWrapper, textSpanToUnhide, actionButtonsToUnhide);
 
             if (isCancelled) return;
 
@@ -809,47 +856,7 @@
 
 
             if (hasChanges) {
-                if (updatedProperties.text !== undefined && textSpanToUnhide) {
-                   textSpanToUnhide.textContent = updatedProperties.text;
-                }
-                
-                let dueDateSpan = li.querySelector('.task-due-date');
-                if (updatedProperties.dueDate !== undefined) { 
-                    if (updatedProperties.dueDate) { 
-                        if (!dueDateSpan) { 
-                            dueDateSpan = document.createElement('span');
-                            dueDateSpan.classList.add('task-due-date', 'text-xs', 'text-meta', 'ml-2', 'whitespace-nowrap', 'pl-1', 'pr-1');
-                            if(textSpanToUnhide) textSpanToUnhide.after(dueDateSpan); 
-                            else if(li.querySelector('.checkbox-icon')) li.querySelector('.checkbox-icon').after(dueDateSpan); 
-                        }
-                        dueDateSpan.textContent = `Due: ${updatedProperties.dueDate}`;
-                    } else if (dueDateSpan) { 
-                        dueDateSpan.remove();
-                    }
-                }
-                
-                if (updatedProperties.priority !== undefined) {
-                   li.dataset.priority = updatedProperties.priority;
-                   li.classList.remove('priority-low', 'priority-medium', 'priority-high');
-                   if (updatedProperties.priority === 1) li.classList.add('priority-low');
-                   else if (updatedProperties.priority === 3) li.classList.add('priority-high');
-                   else li.classList.add('priority-medium');
-                }
-                // Visual update for recurrence change on the task item itself
-                let recurrenceSpan = li.querySelector('.task-recurrence-info');
-                if (updatedProperties.recurrence !== undefined) {
-                    const summary = getRecurrenceSummary(updatedProperties.recurrence);
-                    if (summary) {
-                        if (!recurrenceSpan) {
-                            recurrenceSpan = document.createElement('span');
-                            recurrenceSpan.classList.add('task-recurrence-info', 'text-xs', 'text-blue-500', 'dark:text-blue-400', 'ml-2', 'italic');
-                            (dueDateSpan || textSpanToUnhide || li.querySelector('.checkbox-icon')).after(recurrenceSpan);
-                        }
-                        recurrenceSpan.textContent = summary;
-                    } else if (recurrenceSpan) {
-                        recurrenceSpan.remove();
-                    }
-                }
+                applyTaskVisualUpdates(li, textSpanToUnhide, updatedProperties);
                 updateTodoInStorage(todoId, updatedProperties); 
             }
         }
