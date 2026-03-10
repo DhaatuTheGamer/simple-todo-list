@@ -1,54 +1,117 @@
 # Simple To-Do List App
 
-## Description
+> A straightforward, fully-featured To-Do List application built for the web.
 
-This is a straightforward and easy-to-use To-Do List application created using basic web technologies: HTML, CSS (with Tailwind CSS for styling), and JavaScript. It helps you keep track of your tasks directly in your web browser. All tasks are saved in your browser's local storage, so they persist even if you close the browser window or refresh the page.
+This project is a functional, responsive, and easy-to-use To-Do List that operates directly in your web browser. It solves the problem of local, private task management by storing all data persistently in your browser's Local Storage. The application is built using standard web technologies (HTML, CSS, JavaScript) alongside Tailwind CSS to ensure a lightweight footprint, high performance, and ease of modification without complex build steps for the core application.
+
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [Installation & Requirements](#installation--requirements)
+- [Usage Instructions & Examples](#usage-instructions--examples)
+- [Technologies Used](#technologies-used)
+- [Testing Instructions](#testing-instructions)
+- [Contribution Guidelines](#contribution-guidelines)
+- [License](#license)
+
+---
 
 ## Features
 
-* **Add Tasks:** Quickly add new tasks using the input field, including setting due dates, priorities, and recurrence rules.
-* **Hierarchical Sub-tasks:**
-    * Organize tasks into a hierarchy by creating sub-tasks under parent tasks.
-    * Sub-tasks are visually indented under their parent for clarity.
-    * Use the "Add sub-task" button (plus icon) on a task to create a child task for it.
-    * A maximum depth of 3 levels is supported (parent -> child -> grandchild).
-    * Deleting a parent task will also delete all its sub-tasks.
-* **Task Recurrence:**
-    * Set tasks to recur daily, weekly, monthly, or on specific days of the week (e.g., every Monday and Wednesday).
-    * When a recurring task with a due date is marked complete, the next instance of the task is automatically generated with its due date advanced according to the rule. The completed instance becomes non-recurring.
-    * Recurrence rules (including selecting specific days for 'weekly' or 'specific_days' types) can be set or modified when adding or editing a task via a dedicated "Recurrence" options panel.
-* **Mark as Complete:** Click the circle next to a task to mark it as done (it will be crossed out).
-* **Edit Tasks:** Double-click on the text of an active task to edit its details, including text, due date, priority, and recurrence settings. Press Enter or click away to save.
-* **Due Dates:** Assign a due date to your tasks, which will be displayed alongside the task.
-* **Priority Levels:** Set a priority (Low, Medium, High) for each task, visually indicated by a colored border on the left.
-* **Star Tasks:** Click the star icon to mark important tasks.
-* **Delete Tasks:** Click the trash can icon to remove a task (a confirmation will appear).
-* **Filter Tasks:** Use the sidebar to view All, Starred, Active, or Completed tasks.
-* **Task Searching:** Use the search bar to quickly find tasks by matching text content across all tasks, including sub-tasks.
-* **Automatic Sorting:** Sort tasks by due date (oldest or newest first), priority (high-low or low-high), or name (A-Z or Z-A). Sub-tasks are sorted relative to their siblings under the same parent.
-* **Drag & Drop Reordering:** When in 'Default' sort order, click and drag top-level active tasks to change their order manually. Sub-tasks cannot be independently dragged.
-* **Clear Completed:** A button appears to easily remove all completed tasks at once.
-* **Light/Dark Theme:** Toggle between light and dark modes using the sun/moon icon.
-* **Local Storage:** Your tasks are automatically saved in your browser.
+- **Advanced Task Management:** Create tasks with due dates, priority levels (Low, Medium, High), and star important items.
+- **Hierarchical Sub-tasks:** Organize tasks with up to 3 levels of depth.
+- **Task Recurrence:** Set tasks to repeat daily, weekly, monthly, or on specific days of the week.
+- **Drag & Drop:** Reorder tasks intuitively with a drag-and-drop interface.
+- **Filtering & Search:** Easily filter active/completed tasks and search by text content.
+- **Theme Support:** Built-in Light and Dark modes.
+- **Local Storage:** Zero database setup needed; all data persists locally in your browser.
 
-## How to Use
+---
 
-1.  Download the `index.html` file.
-2.  Open the `index.html` file in your preferred web browser (like Chrome, Firefox, Edge, etc.).
-3.  That's it! Start adding and managing your tasks.
+## Installation & Requirements
+
+Since this is a client-side JavaScript application, the installation process is minimal.
+
+**Requirements:**
+- A modern web browser (Chrome, Firefox, Safari, Edge).
+- **Node.js (v14+) & npm** (Only required if you wish to run the automated tests).
+
+**Steps:**
+
+1. **Clone the repository** (or download the ZIP):
+   ```bash
+   git clone https://github.com/DhaatuTheGamer/simple-todo-list.git
+   ```
+
+2. **Navigate to the project directory:**
+   ```bash
+   cd simple-todo-list
+   ```
+
+3. **Launch the application:**
+   You do not need a web server. Simply open `index.html` in your web browser:
+   - Double-click `index.html` in your file explorer, OR
+   - Open it from your terminal (e.g., `open index.html` on macOS or `start index.html` on Windows).
+
+4. **(Optional) Install development dependencies** for testing:
+   ```bash
+   npm install
+   ```
+
+---
+
+## Usage Instructions & Examples
+
+### Adding a Task
+1. Type your task details in the top input bar.
+2. Select a due date and priority if needed.
+3. Click **Add Task** or press `Enter`.
+
+### Setting up Recurrence
+When generating a task, click on the **Recurrence** settings to choose how often the task should repeat (e.g., "Daily", or "Weekly" on specific days). When you complete a recurring task, its next instance is calculated and cloned automatically.
+
+### Managing Sub-Tasks
+Click the **+ (Plus)** icon on any parent task to quickly add a sub-task. The sub-task will be visibly indented under the parent. Note that deleting a parent task will automatically delete all its associated sub-tasks.
+
+---
 
 ## Technologies Used
 
-* **HTML:** Structures the content of the web page.
-* **CSS:** Styles the appearance.
-    * **Tailwind CSS:** A utility-first CSS framework used for quick styling (loaded via CDN).
-    * **Custom CSS:** Additional styles for theme variables, animations, and specific component looks.
-* **JavaScript:** Handles all the interactivity, task management, filtering, drag & drop, sub-tasks, recurrence, and saving data to Local Storage.
+- **HTML5 & CSS3:** Semantic structure and custom styling (theme variables, layout, animations).
+- **JavaScript (ES6+):** Core application logic, DOM manipulation, drag-and-drop mechanics, recurrence calculations, and Local Storage synchronization.
+- **Tailwind CSS:** Utility-first CSS framework for rapid and responsive UI styling via CDN.
+- **Jest:** JavaScript testing framework used for writing and running automated unit tests.
 
-## Future Ideas (Optional)
+---
 
-* Implement more advanced recurrence options (e.g., "every X days/weeks/months", "every 2nd Tuesday", specific end dates for recurrence).
-* Allow parent task completion to optionally complete all its sub-tasks.
-* Add visual cues for tasks with upcoming or past due dates.
-* Implement task reminders or notifications.
-* User accounts and cloud synchronization.
+## Testing Instructions
+
+Automated tests are included to verify the application's core logic, such as date formatting and task recurrence generation under various circumstances.
+
+1. Ensure you have installed the testing dependencies by running:
+   ```bash
+   npm install
+   ```
+
+2. Run the test suite:
+   ```bash
+   npm test
+   ```
+
+This command invokes the Jest test runner against `recurrence.test.js` to ensure the mathematical and logical integrity of the recurring task engine.
+
+---
+
+## Contribution Guidelines
+
+Contributions, issues, and feature requests are welcome! 
+
+Please read our [Contribution Guidelines](CONTRIBUTING.md) for details on our code of conduct, and the standardized process for submitting pull requests. We proudly adhere to the Contributor Covenant.
+
+---
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for more details.
