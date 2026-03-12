@@ -123,7 +123,7 @@
                 level: level,
                 recurrence: recurrenceData 
             };
-            const todos = getTodosFromStorage();
+            const todos = [...getTodosFromStorage()];
             todos.unshift(todo); 
             saveTodosToStorage(todos);
             
@@ -493,7 +493,7 @@
             
             // Recurrence Logic for completing a task
             if (isCompleted) {
-                let todos = getTodosFromStorage(); // Get a mutable copy of all todos
+                let todos = [...getTodosFromStorage()]; // Get a mutable copy of all todos
                 const currentTaskIndex = todos.findIndex(t => t.id === todoId);
                 if (currentTaskIndex === -1) {
                     console.error("Task to complete not found in storage.");
@@ -926,13 +926,13 @@
 
         function getTodosFromStorage() {
             if (memoizedTodos) {
-                return [...memoizedTodos];
+                return memoizedTodos;
             }
             try {
                 const todosString = localStorage.getItem('todos'); 
                 const todos = todosString ? JSON.parse(todosString) : []; 
                 memoizedTodos = normalizeTodos(todos);
-                return [...memoizedTodos];
+                return memoizedTodos;
             } catch (e) { console.error("Error reading todos from localStorage:", e); return []; }
         }
 
@@ -966,7 +966,7 @@
             let allTasks = getTodosFromStorage(); 
             
             if (currentSortOrder !== 'default') {
-                allTasks.sort(sortTasksLogic);
+                allTasks = [...allTasks].sort(sortTasksLogic);
             }
             
             let hierarchicallyOrderedTasks = buildHierarchicalTaskArray(allTasks, null, 0);
