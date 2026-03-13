@@ -75,15 +75,99 @@
         todoList.addEventListener('drop', handleDrop);               
 
 
+        // --- Encryption Helpers ---
+        let encryptionKey = null;
+
+        async function getEncryptionKey() {
+            if (encryptionKey) return encryptionKey;
+
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('TodoKeyDB', 1);
+
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains('keys')) {
+                        db.createObjectStore('keys');
+                    }
+                };
+
+                request.onsuccess = (event) => {
+                    const db = event.target.result;
+                    const transaction = db.transaction(['keys'], 'readwrite');
+                    const store = transaction.objectStore('keys');
+                    const getRequest = store.get('todo-aes-gcm-key');
+
+                    getRequest.onsuccess = async () => {
+                        if (getRequest.result) {
+                            encryptionKey = getRequest.result;
+                            resolve(encryptionKey);
+                        } else {
+                            try {
+                                encryptionKey = await crypto.subtle.generateKey(
+                                    { name: 'AES-GCM', length: 256 },
+                                    false,
+                                    ['encrypt', 'decrypt']
+                                );
+                                store.put(encryptionKey, 'todo-aes-gcm-key');
+                                resolve(encryptionKey);
+                            } catch (e) {
+                                reject(e);
+                            }
+                        }
+                    };
+                    getRequest.onerror = (e) => reject(e);
+                };
+                request.onerror = (e) => reject(e);
+            });
+        }
+
+        async function encryptData(data) {
+            const key = await getEncryptionKey();
+            const enc = new TextEncoder();
+            const encoded = enc.encode(data);
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const cipherText = await crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv: iv },
+                key,
+                encoded
+            );
+
+            const ivArr = Array.from(iv);
+            const cipherArr = Array.from(new Uint8Array(cipherText));
+            const combined = { iv: ivArr, data: cipherArr };
+            return btoa(JSON.stringify(combined));
+        }
+
+        async function decryptData(encryptedBase64) {
+            const key = await getEncryptionKey();
+            try {
+                const combinedStr = atob(encryptedBase64);
+                const combined = JSON.parse(combinedStr);
+                const iv = new Uint8Array(combined.iv);
+                const cipherText = new Uint8Array(combined.data);
+
+                const decrypted = await crypto.subtle.decrypt(
+                    { name: 'AES-GCM', iv: iv },
+                    key,
+                    cipherText
+                );
+                const dec = new TextDecoder();
+                return dec.decode(decrypted);
+            } catch (e) {
+                console.error("Decryption failed", e);
+                return null;
+            }
+        }
+
         // --- Initialization ---
-        function initializeApp() {
+        async function initializeApp() {
             loadTheme(); 
             applyInitialSidebarState(); 
-            loadTodos(); 
+            await loadTodos();
         }
 
         // --- Core Functions ---
-        function addTodo() {
+        async function addTodo() {
             const todoText = todoInput.value.trim(); 
             if (todoText === '') { 
                 showInputError("Task cannot be empty!"); 
@@ -101,7 +185,8 @@
 
             if (currentParentIdForNewTask !== null) {
                 parentId = Number(currentParentIdForNewTask);
-                const parentTask = getTodosFromStorage().find(t => t.id === parentId);
+                const currentTodos = await getTodosFromStorage();
+                const parentTask = currentTodos.find(t => t.id === parentId);
                 if (parentTask) {
                     level = parentTask.level + 1;
                 } else {
@@ -123,9 +208,10 @@
                 level: level,
                 recurrence: recurrenceData 
             };
-            const todos = [...getTodosFromStorage()];
+            const currentTodosForAdd = await getTodosFromStorage();
+            const todos = [...currentTodosForAdd];
             todos.unshift(todo); 
-            saveTodosToStorage(todos);
+            await saveTodosToStorage(todos);
             
             if (currentParentIdForNewTask !== null) {
                 currentParentIdForNewTask = null; 
@@ -133,7 +219,7 @@
             }
             document.getElementById('mainRecurrenceOptions').classList.add('hidden'); // Hide after add
 
-            loadTodos(); 
+            await loadTodos();
             
             todoInput.value = ''; 
             if(dueDateInput) dueDateInput.value = ''; 
@@ -224,7 +310,7 @@
         }
 
         // --- Event Handlers ---
-        function handleListClick(event) {
+        async function handleListClick(event) {
             if (currentlyEditing !== null) return; 
             const target = event.target; 
             const li = target.closest('li[data-id]'); 
@@ -234,12 +320,13 @@
             if (actionTarget) {
                 const action = actionTarget.dataset.action; 
                 if (action === 'delete') showConfirmationModal(todoId); 
-                else if (action === 'star') toggleStar(todoId, li, actionTarget); 
-                else if (action === 'toggleComplete') toggleComplete(todoId, li, actionTarget); 
+                else if (action === 'star') await toggleStar(todoId, li, actionTarget);
+                else if (action === 'toggleComplete') await toggleComplete(todoId, li, actionTarget);
                 else if (action === 'addSubtask') {
                     const parentId = actionTarget.dataset.parentId;
                     currentParentIdForNewTask = parentId;
-                    const parentTask = getTodosFromStorage().find(t => t.id === Number(parentId));
+                    const todos = await getTodosFromStorage();
+                    const parentTask = todos.find(t => t.id === Number(parentId));
                     const parentText = parentTask ? parentTask.text : '';
                     todoInput.placeholder = `Adding sub-task to: "${parentText.substring(0,20)}${parentText.length > 20 ? '...' : ''}"`;
                     todoInput.focus();
@@ -247,30 +334,40 @@
             } 
         }
         
-        function handleListDoubleClick(event) {
+        async function handleListDoubleClick(event) {
             const target = event.target;
             if (target.classList.contains('todo-text') && !target.closest('li.completed')) {
                 const li = target.closest('li[data-id]');
                 if (li && currentlyEditing === null) { 
-                    enterEditMode(li, target, Number(li.dataset.id)); 
+                    await enterEditMode(li, target, Number(li.dataset.id));
                 }
             }
         }
         
-        function handleGlobalKeyDown(event) {
+        async function handleGlobalKeyDown(event) {
              if (event.key === 'Escape') {
                  if (confirmationModal.classList.contains('visible')) handleCancelDelete(); 
                  if (clearConfirmationModal.classList.contains('visible')) hideClearConfirmationModal(); 
                  if (currentlyEditing !== null) { 
                     const li = todoList.querySelector(`li[data-id="${currentlyEditing}"]`);
                     const textEditInput = li?.querySelector('.edit-input'); 
-                    if(li && textEditInput) saveEdit(li, textEditInput, currentlyEditing, true); 
+                    if(li && textEditInput) await saveEdit(li, textEditInput, currentlyEditing, true);
                  }
              }
         }
 
         // --- Edit Mode ---
-        function createEditControls(todoId, originalTextContent, taskDataForEdit) {
+        async function enterEditMode(li, textSpan, todoId) {
+            currentlyEditing = todoId; li.classList.add('editing'); li.draggable = false; li.style.cursor = 'default'; 
+            
+            const todos = await getTodosFromStorage();
+            const taskDataForEdit = todos.find(t => t.id === todoId);
+            
+            const originalTextSpan = li.querySelector('.todo-text'); 
+            const actionButtons = li.querySelector('.flex-shrink-0'); 
+            if(originalTextSpan) originalTextSpan.classList.add('hidden');
+            if(actionButtons) actionButtons.classList.add('hidden');
+
             const editWrapper = document.createElement('div');
             editWrapper.classList.add('edit-controls-wrapper'); 
 
@@ -324,7 +421,7 @@
         function setupEditModeEventListeners(li, todoId, controls) {
             const { editWrapper, textEditInput, editDueDateInput, editPriorityInput } = controls;
             
-            const saveOnBlurOrEnter = (event) => {
+            const saveOnBlurOrEnter = async (event) => {
                 const targetIsInsideEditWrapper = editWrapper.contains(event.relatedTarget);
                 const targetIsRecurrencePanelItself = event.relatedTarget && event.relatedTarget.closest('.edit-recurrence-panel, .recurrence-options-panel');
 
@@ -335,7 +432,7 @@
                 textEditInput.removeEventListener('blur', saveOnBlurOrEnter);
                 editDueDateInput.removeEventListener('blur', saveOnBlurOrEnter);
                 editPriorityInput.removeEventListener('blur', saveOnBlurOrEnter);
-                saveEdit(li, textEditInput, todoId, false); 
+                await saveEdit(li, textEditInput, todoId, false);
             };
             
             const outsideClickListener = (event) => {
@@ -355,12 +452,12 @@
             editDueDateInput.addEventListener('blur', saveOnBlurOrEnter);
             editPriorityInput.addEventListener('blur', saveOnBlurOrEnter);
 
-            textEditInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') { e.preventDefault(); saveOnBlurOrEnter(e); } 
-                else if (e.key === 'Escape') { saveEdit(li, textEditInput, todoId, true); } 
+            textEditInput.addEventListener('keydown', async (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); await saveOnBlurOrEnter(e); }
+                else if (e.key === 'Escape') { await saveEdit(li, textEditInput, todoId, true); }
             });
-            editDueDateInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') saveEdit(li, textEditInput, todoId, true); });
-            editPriorityInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') saveEdit(li, textEditInput, todoId, true); });
+            editDueDateInput.addEventListener('keydown', async (e) => { if (e.key === 'Escape') await saveEdit(li, textEditInput, todoId, true); });
+            editPriorityInput.addEventListener('keydown', async (e) => { if (e.key === 'Escape') await saveEdit(li, textEditInput, todoId, true); });
         }
 
         function enterEditMode(li, textSpan, todoId) {
@@ -453,7 +550,7 @@
             }
         }
 
-        function saveEdit(li, textInput, todoId, isCancelled) { 
+        async function saveEdit(li, textInput, todoId, isCancelled) {
              if (currentlyEditing !== todoId && !isCancelled) return; 
 
              const textSpanToUnhide = li.querySelector('.todo-text'); 
@@ -478,7 +575,8 @@
 
             if (isCancelled) return;
 
-            const originalTaskData = getTodosFromStorage().find(t => t.id === todoId);
+            const todos = await getTodosFromStorage();
+            const originalTaskData = todos.find(t => t.id === todoId);
             if (!originalTaskData) { console.error("Original task data not found for saving edit."); return; }
 
             const updatedProperties = {};
@@ -508,13 +606,13 @@
 
             if (hasChanges) {
                 applyTaskVisualUpdates(li, textSpanToUnhide, updatedProperties);
-                updateTodoInStorage(todoId, updatedProperties); 
+                await updateTodoInStorage(todoId, updatedProperties);
             }
         }
 
 
         // --- Action Handlers ---
-        function toggleComplete(todoId, li, checkbox) {
+        async function toggleComplete(todoId, li, checkbox) {
             const isCompleted = !li.classList.contains('completed'); 
             li.classList.toggle('completed', isCompleted); li.dataset.completed = isCompleted; checkbox.setAttribute('aria-checked', isCompleted); 
             li.draggable = currentSortOrder === 'default' && !isCompleted && (parseInt(li.dataset.level) || 0) === 0; 
@@ -522,12 +620,13 @@
             
             if(isCompleted && li.classList.contains('editing')) { 
                  const textEditInput = li.querySelector('.edit-input');
-                 if(textEditInput) saveEdit(li, textEditInput, todoId, true); 
+                 if(textEditInput) await saveEdit(li, textEditInput, todoId, true);
             }
             
             // Recurrence Logic for completing a task
             if (isCompleted) {
-                let todos = [...getTodosFromStorage()]; // Get a mutable copy of all todos
+                const currentTodos = await getTodosFromStorage();
+                let todos = [...currentTodos]; // Get a mutable copy of all todos
                 const currentTaskIndex = todos.findIndex(t => t.id === todoId);
                 if (currentTaskIndex === -1) {
                     console.error("Task to complete not found in storage.");
@@ -551,41 +650,41 @@
                         todos[currentTaskIndex] = { ...currentTask, completed: true, recurrence: null };
                         todos.push(nextInstanceTodo);
                         
-                        saveTodosToStorage(todos); 
-                        loadTodos(); 
+                        await saveTodosToStorage(todos);
+                        await loadTodos();
                         return; 
                     } else {
                         todos[currentTaskIndex] = { ...currentTask, completed: true, recurrence: null };
-                        saveTodosToStorage(todos);
+                        await saveTodosToStorage(todos);
                     }
                 } else {
                     todos[currentTaskIndex] = { ...currentTask, completed: true };
-                    saveTodosToStorage(todos);
+                    await saveTodosToStorage(todos);
                 }
             } else {
-                updateTodoInStorage(todoId, { completed: false });
+                await updateTodoInStorage(todoId, { completed: false });
             }
             
-            applyFiltersAndSearch(); 
-            updateTaskCount(); 
-            updateClearButtonVisibility(); 
+            await applyFiltersAndSearch();
+            await updateTaskCount();
+            await updateClearButtonVisibility();
         }
 
-        function toggleStar(todoId, li, starBtn) {
+        async function toggleStar(todoId, li, starBtn) {
             const isStarred = !li.classList.contains('starred'); 
             li.classList.toggle('starred', isStarred); li.dataset.starred = isStarred; 
             starBtn.setAttribute('aria-label', isStarred ? 'Unstar task' : 'Star task'); starBtn.setAttribute('aria-pressed', isStarred); 
-            updateTodoInStorage(todoId, { starred: isStarred });
-            applyFiltersAndSearch(); 
+            await updateTodoInStorage(todoId, { starred: isStarred });
+            await applyFiltersAndSearch();
         }
 
-        function deleteTodo(todoId) {
+        async function deleteTodo(todoId) {
             const liToDelete = todoList.querySelector(`li[data-id="${todoId}"]`);
             if (liToDelete) {
                 liToDelete.classList.add('deleting');
-                liToDelete.addEventListener('animationend', () => {
+                liToDelete.addEventListener('animationend', async () => {
                     liToDelete.remove();
-                    let todos = getTodosFromStorage();
+                    let todos = await getTodosFromStorage();
                     const idsToDelete = new Set([todoId]);
 
                     const childrenMap = new Map();
@@ -611,14 +710,15 @@
                     }
                     
                     todos = todos.filter(todo => !idsToDelete.has(todo.id));
-                    saveTodosToStorage(todos);
-                    loadTodos(); 
+                    await saveTodosToStorage(todos);
+                    await loadTodos();
                 }, { once: true });
             } else {
                  console.warn("Delete failed: Element not found visually:", todoId);
-                 const todos = getTodosFromStorage().filter(todo => todo.id !== todoId); 
-                 saveTodosToStorage(todos);
-                 loadTodos();
+                 const allTodos = await getTodosFromStorage();
+                 const todos = allTodos.filter(todo => todo.id !== todoId);
+                 await saveTodosToStorage(todos);
+                 await loadTodos();
             }
         }
 
@@ -635,12 +735,12 @@
         // --- Modals ---
         function showConfirmationModal(todoId) { todoIdToDelete = todoId; confirmationModal.classList.add('visible'); cancelDeleteBtn.focus(); }
         function hideConfirmationModal() { todoIdToDelete = null; confirmationModal.classList.remove('visible'); }
-        function handleConfirmDelete() { if (todoIdToDelete !== null) { deleteTodo(todoIdToDelete); } hideConfirmationModal(); }
+        async function handleConfirmDelete() { if (todoIdToDelete !== null) { await deleteTodo(todoIdToDelete); } hideConfirmationModal(); }
         function handleCancelDelete() { hideConfirmationModal(); }
         function showClearConfirmationModal() { clearConfirmationModal.classList.add('visible'); cancelClearBtn.focus(); }
         function hideClearConfirmationModal() { clearConfirmationModal.classList.remove('visible'); }
-        function handleConfirmClear() {
-            const todos = getTodosFromStorage();
+        async function handleConfirmClear() {
+            const todos = await getTodosFromStorage();
             const completedTodos = todos.filter(todo => todo.completed);
             const activeTodos = todos.filter(todo => !todo.completed); 
             if (completedTodos.length > 0) {
@@ -648,46 +748,47 @@
                     const li = todoList.querySelector(`li[data-id="${todo.id}"]`);
                     if (li) { li.classList.add('deleting'); li.addEventListener('animationend', () => li.remove(), { once: true }); }
                 });
-                setTimeout(() => { 
-                    saveTodosToStorage(activeTodos); 
-                    loadTodos();
+                setTimeout(async () => {
+                    await saveTodosToStorage(activeTodos);
+                    await loadTodos();
                 }, 50); 
             }
             hideClearConfirmationModal(); 
         }
-        function updateClearButtonVisibility() { 
-            const hasCompleted = getTodosFromStorage().some(todo => todo.completed); 
+        async function updateClearButtonVisibility() {
+            const todos = await getTodosFromStorage();
+            const hasCompleted = todos.some(todo => todo.completed);
             clearCompletedContainer.classList.toggle('hidden', !hasCompleted); 
         }
 
         // --- Filtering, Searching & Sorting ---
-        function handleSearchInput(event) {
+        async function handleSearchInput(event) {
             currentSearchTerm = event.target.value.toLowerCase();
-            applyFiltersAndSearch();
+            await applyFiltersAndSearch();
         }
 
-        function handleSortChange(event) {
+        async function handleSortChange(event) {
             currentSortOrder = event.target.value;
-            loadTodos(); 
+            await loadTodos();
         }
 
-        function handleFilterClick(event) {
+        async function handleFilterClick(event) {
             if (currentlyEditing !== null) { 
                 const li = todoList.querySelector(`li[data-id="${currentlyEditing}"]`); 
                 const textEditInput = li?.querySelector('.edit-input');
-                if (li && textEditInput) { saveEdit(li, textEditInput, currentlyEditing, false); } 
+                if (li && textEditInput) { await saveEdit(li, textEditInput, currentlyEditing, false); }
             }
             const selectedFilter = event.currentTarget.dataset.filter; 
             if (selectedFilter === currentFilter) return; 
             currentFilter = selectedFilter; 
             filterButtons.forEach(button => button.classList.toggle('active', button.dataset.filter === currentFilter));
-            applyFiltersAndSearch();
+            await applyFiltersAndSearch();
         }
 
-        function applyFiltersAndSearch() { 
+        async function applyFiltersAndSearch() {
             const listItems = todoList.querySelectorAll('li'); 
             const searchTerm = currentSearchTerm; 
-            const allTodos = getTodosFromStorage();
+            const allTodos = await getTodosFromStorage();
 
             const hideMap = {};
             for (let i = 0; i < allTodos.length; i++) {
@@ -716,12 +817,12 @@
                 }
             }
 
-            updateEmptyMessageVisibility(); 
+            await updateEmptyMessageVisibility();
         }
 
         // --- Task Count ---
-        function updateTaskCount() {
-            const todos = getTodosFromStorage(); 
+        async function updateTaskCount() {
+            const todos = await getTodosFromStorage();
             const activeTasks = todos.filter(todo => !todo.completed).length; 
             const totalTasks = todos.length;
             let countText = '';
@@ -733,8 +834,8 @@
         }
 
         // --- Empty Messages ---
-        function updateEmptyMessageVisibility() {
-            const allTodos = getTodosFromStorage(); 
+        async function updateEmptyMessageVisibility() {
+            const allTodos = await getTodosFromStorage();
             const visibleItems = todoList.querySelectorAll('li:not(.hidden)'); 
             const isListEmpty = allTodos.length === 0; 
             
@@ -765,7 +866,7 @@
             if (isListEmpty) { 
                 clearCompletedContainer.classList.add('hidden'); 
             } else {
-                 updateClearButtonVisibility(); 
+                 await updateClearButtonVisibility();
             }
         }
 
@@ -789,11 +890,11 @@
             themeIconSun.classList.toggle('icon-hidden', isDark); 
             themeIconMoon.classList.toggle('icon-hidden', !isDark); 
         }
-        function toggleTheme() { 
+        async function toggleTheme() {
             if (currentlyEditing !== null) { 
                 const li = todoList.querySelector(`li[data-id="${currentlyEditing}"]`); 
                 const textEditInput = li?.querySelector('.edit-input');
-                if (li && textEditInput) { saveEdit(li, textEditInput, currentlyEditing, false); } 
+                if (li && textEditInput) { await saveEdit(li, textEditInput, currentlyEditing, false); }
             } 
             const isDark = document.documentElement.classList.toggle('dark'); 
             localStorage.setItem('theme', isDark ? 'dark' : 'light'); 
@@ -827,7 +928,7 @@
             if (targetItem && !targetItem.contains(e.relatedTarget)) { targetItem.classList.remove('drag-over-top', 'drag-over-bottom'); }
              if (!e.currentTarget.contains(e.relatedTarget)) { clearDragOverIndicators(); }
         }
-        function handleDrop(e) {
+        async function handleDrop(e) {
             e.preventDefault(); 
             const targetItem = e.target.closest('li[draggable="true"]');
             if (!targetItem || !draggedItem || targetItem === draggedItem || (parseInt(targetItem.dataset.level) || 0) > 0) { 
@@ -838,18 +939,18 @@
             else { todoList.insertBefore(draggedItem, targetItem.nextSibling); }
             targetItem.classList.remove('drag-over-top', 'drag-over-bottom');
             if (currentSortOrder === 'default') { 
-                updateStorageOrder(); 
+                await updateStorageOrder();
             }
         }
         function clearDragOverIndicators(exceptItem = null) { document.querySelectorAll('#todoList li.drag-over-top, #todoList li.drag-over-bottom').forEach(li => { if (li !== exceptItem) { li.classList.remove('drag-over-top', 'drag-over-bottom'); } }); }
         
-        function updateStorageOrder() { 
+        async function updateStorageOrder() {
             const listItems = Array.from(todoList.querySelectorAll('li'));
             const topLevelItemIds = listItems
                 .filter(item => (parseInt(item.dataset.level) || 0) === 0)
                 .map(li => Number(li.dataset.id));
             
-            const currentTodos = getTodosFromStorage();
+            const currentTodos = await getTodosFromStorage();
             let orderedStorageTodos = [];
             const processedIds = new Set();
 
@@ -870,10 +971,10 @@
             });
             
             if (orderedStorageTodos.length === currentTodos.length) { 
-                saveTodosToStorage(orderedStorageTodos); 
+                await saveTodosToStorage(orderedStorageTodos);
             } else { 
                 console.warn("Storage order update mismatch. Saving currentTodos as fallback.", currentTodos.length, orderedStorageTodos.length);
-                saveTodosToStorage(currentTodos); 
+                await saveTodosToStorage(currentTodos);
             }
         }
 
@@ -962,29 +1063,49 @@
             }).filter(todo => todo.id && typeof todo.text === 'string');
         }
 
-        function getTodosFromStorage() {
+        async function getTodosFromStorage() {
             if (memoizedTodos) {
                 return memoizedTodos;
             }
             try {
-                const todosString = localStorage.getItem('todos'); 
-                const todos = todosString ? JSON.parse(todosString) : []; 
+                const todosString = localStorage.getItem('todos');
+                let todos = [];
+                if (todosString) {
+                    try {
+                        // Attempt to decrypt
+                        const decryptedStr = await decryptData(todosString);
+                        if (decryptedStr) {
+                            todos = JSON.parse(decryptedStr);
+                        } else {
+                            throw new Error("Decryption returned null");
+                        }
+                    } catch (decodeError) {
+                        // Fallback to plain JSON for backward compatibility
+                        try {
+                            todos = JSON.parse(todosString);
+                        } catch (parseError) {
+                            console.error("Error parsing unencrypted todos from localStorage:", parseError);
+                        }
+                    }
+                }
                 memoizedTodos = normalizeTodos(todos);
                 return memoizedTodos;
             } catch (e) { console.error("Error reading todos from localStorage:", e); return []; }
         }
 
-        function saveTodosToStorage(todos) { 
+        async function saveTodosToStorage(todos) {
             try { 
                 memoizedTodos = normalizeTodos(todos);
-                localStorage.setItem('todos', JSON.stringify(memoizedTodos));
+                const jsonString = JSON.stringify(memoizedTodos);
+                const encryptedString = await encryptData(jsonString);
+                localStorage.setItem('todos', encryptedString);
             } catch (e) { 
                 console.error("Error saving todos to localStorage:", e); 
             } 
         }
 
-        function updateTodoInStorage(todoId, updatedProperties) {
-            const todos = getTodosFromStorage(); 
+        async function updateTodoInStorage(todoId, updatedProperties) {
+            const todos = await getTodosFromStorage();
             let found = false;
             const updatedTodos = todos.map(todo => { 
                 if (todo.id === todoId) { 
@@ -994,14 +1115,14 @@
                 return todo; 
             });
             if (found) { 
-                saveTodosToStorage(updatedTodos); 
+                await saveTodosToStorage(updatedTodos);
             } else { 
                 console.warn("Update failed: Todo not found in storage:", todoId); 
             }
         }
 
-        function loadTodos() {
-            let allTasks = getTodosFromStorage(); 
+        async function loadTodos() {
+            let allTasks = await getTodosFromStorage();
             
             if (currentSortOrder !== 'default') {
                 allTasks = [...allTasks].sort(sortTasksLogic);
@@ -1012,9 +1133,9 @@
             todoList.innerHTML = ''; 
             hierarchicallyOrderedTasks.forEach(todo => renderTodoItem(todo)); 
             
-            applyFiltersAndSearch(); 
-            updateTaskCount(); 
-            updateClearButtonVisibility(); 
+            await applyFiltersAndSearch();
+            await updateTaskCount();
+            await updateClearButtonVisibility();
         }
 
         // --- Recurrence UI Management ---
@@ -1125,7 +1246,7 @@
             }
             typeSelect.onchange(); 
 
-            clearBtn.onclick = () => {
+            clearBtn.onclick = async () => {
                 typeSelect.value = 'none';
                 panel.querySelectorAll(`input[name="${panelId}_day"]`).forEach(cb => cb.checked = false);
                 typeSelect.onchange(); 
@@ -1133,19 +1254,20 @@
                     const todoId = parseInt(panelId.split('_')[1]);
                     const li = todoList.querySelector(`li[data-id="${todoId}"]`);
                     const textInput = li?.querySelector('.edit-input'); 
-                    if (li && textInput) saveEdit(li, textInput, todoId, false);
+                    if (li && textInput) await saveEdit(li, textInput, todoId, false);
                 }
             };
         }
 
-        function toggleRecurrencePanel(panelId, todoIdForEdit = null) {
+        async function toggleRecurrencePanel(panelId, todoIdForEdit = null) {
             const panel = document.getElementById(panelId);
             if (!panel) return;
             const isHidden = panel.classList.toggle('hidden');
             if (!isHidden) { 
                 let taskRecurrenceData = null;
                 if (todoIdForEdit !== null) { 
-                    const task = getTodosFromStorage().find(t => t.id === todoIdForEdit);
+                    const todos = await getTodosFromStorage();
+                    const task = todos.find(t => t.id === todoIdForEdit);
                     taskRecurrenceData = task ? task.recurrence : null;
                 }
                 buildRecurrenceFormFields(panelId, taskRecurrenceData);
