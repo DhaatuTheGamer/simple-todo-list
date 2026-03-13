@@ -270,22 +270,13 @@
         }
 
         // --- Edit Mode ---
-        function enterEditMode(li, textSpan, todoId) {
-            currentlyEditing = todoId; li.classList.add('editing'); li.draggable = false; li.style.cursor = 'default'; 
-            
-            const taskDataForEdit = getTodosFromStorage().find(t => t.id === todoId);
-            
-            const originalTextSpan = li.querySelector('.todo-text'); 
-            const actionButtons = li.querySelector('.flex-shrink-0'); 
-            if(originalTextSpan) originalTextSpan.classList.add('hidden');
-            if(actionButtons) actionButtons.classList.add('hidden');
-
+        function createEditControls(todoId, originalTextContent, taskDataForEdit) {
             const editWrapper = document.createElement('div');
             editWrapper.classList.add('edit-controls-wrapper'); 
 
             const textEditInput = document.createElement('input');
             textEditInput.type = 'text';
-            textEditInput.value = originalTextSpan.textContent;
+            textEditInput.value = originalTextContent;
             textEditInput.classList.add('edit-input'); 
 
             const editDueDateInput = document.createElement('input');
@@ -322,10 +313,16 @@
             editRecurrencePanel.classList.add('edit-recurrence-panel', 'hidden', 'w-full'); 
             editWrapper.appendChild(editRecurrencePanel); 
 
-            const checkbox = li.querySelector('.checkbox-icon'); 
-            checkbox.after(editWrapper);
+            return {
+                editWrapper,
+                textEditInput,
+                editDueDateInput,
+                editPriorityInput
+            };
+        }
 
-            textEditInput.focus(); textEditInput.select(); 
+        function setupEditModeEventListeners(li, todoId, controls) {
+            const { editWrapper, textEditInput, editDueDateInput, editPriorityInput } = controls;
             
             const saveOnBlurOrEnter = (event) => {
                 const targetIsInsideEditWrapper = editWrapper.contains(event.relatedTarget);
@@ -346,6 +343,10 @@
                     saveOnBlurOrEnter(event); 
                 }
             };
+
+            // Expose for external access like removing listener
+            controls.outsideClickListener = outsideClickListener;
+
             setTimeout(() => {
                 document.addEventListener('click', outsideClickListener, true); 
             }, 0);
@@ -362,6 +363,35 @@
             editPriorityInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') saveEdit(li, textEditInput, todoId, true); });
         }
 
+        function enterEditMode(li, textSpan, todoId) {
+            currentlyEditing = todoId;
+            li.classList.add('editing');
+            li.draggable = false;
+            li.style.cursor = 'default';
+
+            const taskDataForEdit = getTodosFromStorage().find(t => t.id === todoId);
+
+            const originalTextSpan = li.querySelector('.todo-text');
+            const actionButtons = li.querySelector('.flex-shrink-0');
+
+            if (originalTextSpan) originalTextSpan.classList.add('hidden');
+            if (actionButtons) actionButtons.classList.add('hidden');
+
+            const controls = createEditControls(todoId, originalTextSpan ? originalTextSpan.textContent : '', taskDataForEdit);
+            const { editWrapper, textEditInput } = controls;
+
+            const checkbox = li.querySelector('.checkbox-icon');
+            if (checkbox) checkbox.after(editWrapper);
+
+            textEditInput.focus();
+            textEditInput.select();
+
+            setupEditModeEventListeners(li, todoId, controls);
+
+            // To ensure we can access it on saveEdit/exitEditMode
+            li._outsideClickListener = controls.outsideClickListener;
+        }
+
         function exitEditMode(li, editWrapper, textSpanToUnhide, actionButtonsToUnhide) {
             if (editWrapper) editWrapper.remove();
             if (textSpanToUnhide) textSpanToUnhide.classList.remove('hidden');
@@ -372,7 +402,11 @@
             li.draggable = currentSortOrder === 'default' && !isCompleted && (parseInt(li.dataset.level) || 0) === 0;
             li.style.cursor = (li.draggable) ? 'grab' : 'default';
             currentlyEditing = null;
-            document.removeEventListener('click', outsideClickListener, true);
+            if (li._outsideClickListener) {
+                document.removeEventListener('click', li._outsideClickListener, true);
+                delete li._outsideClickListener;
+                delete li.dataset.outsideClickListener;
+            }
         }
 
         function applyTaskVisualUpdates(li, textSpanToUnhide, updatedProperties) {
