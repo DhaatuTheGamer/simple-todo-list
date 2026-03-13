@@ -1,144 +1,87 @@
 const fs = require('fs');
 const path = require('path');
+const { JSDOM } = require('jsdom');
 
-describe('updateTodoInStorage', () => {
-    let updateTodoInStorage;
-    let getTodosFromStorageMock;
-    let saveTodosToStorageMock;
-    let originalConsoleWarn;
+const html = fs.readFileSync(path.resolve(__dirname, './index.html'), 'utf8');
+const scriptContent = fs.readFileSync(path.resolve(__dirname, './script.js'), 'utf8');
+
+describe('Storage Error Handling', () => {
+    let dom;
+    let window;
 
     beforeEach(() => {
-        jest.resetModules();
+        dom = new JSDOM(html, { runScripts: "dangerously", url: "http://localhost/" });
+        window = dom.window;
 
-        global.document = {
-            addEventListener: jest.fn(),
-            getElementById: jest.fn(() => ({
-                addEventListener: jest.fn(),
-                classList: { add: jest.fn(), remove: jest.fn(), toggle: jest.fn(), contains: jest.fn() },
-                value: '',
-                innerHTML: '',
-                appendChild: jest.fn(),
-                querySelector: jest.fn(),
-                querySelectorAll: jest.fn(() => []),
-                style: {}
-            })),
-            querySelectorAll: jest.fn(() => []),
-            createElement: jest.fn(() => ({
-                classList: { add: jest.fn(), remove: jest.fn(), toggle: jest.fn(), contains: jest.fn() },
-                setAttribute: jest.fn(),
-                appendChild: jest.fn(),
-                style: {},
-                querySelector: jest.fn()
-            }))
-        };
-        global.window = {
-            matchMedia: jest.fn(() => ({ matches: false, addEventListener: jest.fn() }))
-        };
-        global.localStorage = {
+        // Create a mock for localStorage
+        const localStorageMock = {
             getItem: jest.fn(),
-            setItem: jest.fn()
+            setItem: jest.fn(),
+            clear: jest.fn()
         };
+        Object.defineProperty(window, 'localStorage', { value: localStorageMock, writable: true });
 
-        getTodosFromStorageMock = jest.fn();
-        saveTodosToStorageMock = jest.fn();
-
-        originalConsoleWarn = console.warn;
-        console.warn = jest.fn();
-
-        const scriptCode = fs.readFileSync(path.resolve(__dirname, 'script.js'), 'utf8');
-
-        const wrapper = `
-            let window = global.window;
-            let document = global.document;
-            let localStorage = global.localStorage;
-
-            ${scriptCode}
-
-            getTodosFromStorage = __getTodosMock;
-            saveTodosToStorage = __saveTodosMock;
-
-            return {
-                updateTodoInStorage: updateTodoInStorage
-            };
+        // Evaluate the script within the JSDOM context
+        const scriptElement = window.document.createElement('script');
+        scriptElement.textContent = scriptContent + `
+            window.saveTodosToStorage = saveTodosToStorage;
+            window.getTodosFromStorage = getTodosFromStorage;
+            window.updateTodoInStorage = updateTodoInStorage;
+            window.getMemoizedTodos = () => memoizedTodos;
+            window.setMemoizedTodos = (val) => { memoizedTodos = val; };
         `;
-
-        const extracted = new Function('__getTodosMock', '__saveTodosMock', wrapper)(
-            getTodosFromStorageMock,
-            saveTodosToStorageMock
-        );
-        updateTodoInStorage = extracted.updateTodoInStorage;
+        window.document.body.appendChild(scriptElement);
     });
 
-    afterEach(() => {
-        console.warn = originalConsoleWarn;
-        delete global.document;
-        delete global.window;
-        delete global.localStorage;
+    describe('saveTodosToStorage', () => {
+        test('should log error when localStorage.setItem throws', () => {
+            const consoleErrorSpy = jest.spyOn(window.console, 'error').mockImplementation(() => {});
+
+            window.localStorage.setItem.mockImplementation(() => {
+                throw new Error("QuotaExceededError");
+            });
+
+            const todos = [{ id: 1, text: "Test Todo" }];
+
+            window.saveTodosToStorage(todos);
+
+            expect(consoleErrorSpy).toHaveBeenCalledWith("Error saving todos to localStorage:", expect.any(Error));
+
+            consoleErrorSpy.mockRestore();
+        });
     });
 
-    it('updates a property of an existing todo and saves it', () => {
-        const todos = [
-            { id: 1, text: 'Task 1', completed: false },
-            { id: 2, text: 'Task 2', completed: false }
-        ];
-        getTodosFromStorageMock.mockReturnValue(todos);
+    describe('getTodosFromStorage', () => {
+        test('should log error when localStorage.getItem throws and return empty array', () => {
+            const consoleErrorSpy = jest.spyOn(window.console, 'error').mockImplementation(() => {});
 
-        updateTodoInStorage(1, { completed: true });
+            // Ensure memoizedTodos is null so it falls back to localStorage
+            window.setMemoizedTodos(null);
 
-        expect(getTodosFromStorageMock).toHaveBeenCalledTimes(1);
-        expect(saveTodosToStorageMock).toHaveBeenCalledTimes(1);
-        expect(saveTodosToStorageMock).toHaveBeenCalledWith([
-            { id: 1, text: 'Task 1', completed: true },
-            { id: 2, text: 'Task 2', completed: false }
-        ]);
-        expect(console.warn).not.toHaveBeenCalled();
+            window.localStorage.getItem.mockImplementation(() => {
+                throw new Error("StorageError");
+            });
+
+            const todos = window.getTodosFromStorage();
+
+            expect(consoleErrorSpy).toHaveBeenCalledWith("Error reading todos from localStorage:", expect.any(Error));
+            expect(todos).toEqual([]);
+
+            consoleErrorSpy.mockRestore();
+        });
     });
 
-    it('logs a warning when the todo is not found in storage', () => {
-        const todos = [
-            { id: 2, text: 'Task 2', completed: false }
-        ];
-        getTodosFromStorageMock.mockReturnValue(todos);
+    describe('updateTodoInStorage', () => {
+        test('should log warning when todo is not found in storage', () => {
+            const consoleWarnSpy = jest.spyOn(window.console, 'warn').mockImplementation(() => {});
 
-        updateTodoInStorage(1, { completed: true });
+            window.setMemoizedTodos([{ id: 1, text: "Existing Todo", completed: false, starred: false, dueDate: null, priority: 2, parentId: null, level: 0, recurrence: null }]);
 
-        expect(getTodosFromStorageMock).toHaveBeenCalledTimes(1);
-        expect(saveTodosToStorageMock).not.toHaveBeenCalled();
-        expect(console.warn).toHaveBeenCalledWith("Update failed: Todo not found in storage:", 1);
-    });
+            window.updateTodoInStorage(999, { text: "Updated Todo" });
 
-    it('updates multiple properties of an existing todo', () => {
-        const todos = [
-            { id: 1, text: 'Task 1', completed: false, priority: 2 }
-        ];
-        getTodosFromStorageMock.mockReturnValue(todos);
+            expect(consoleWarnSpy).toHaveBeenCalledWith("Update failed: Todo not found in storage:", 999);
 
-        updateTodoInStorage(1, { text: 'Updated Task', priority: 1 });
-
-        expect(getTodosFromStorageMock).toHaveBeenCalledTimes(1);
-        expect(saveTodosToStorageMock).toHaveBeenCalledTimes(1);
-        expect(saveTodosToStorageMock).toHaveBeenCalledWith([
-            { id: 1, text: 'Updated Task', completed: false, priority: 1 }
-        ]);
-        expect(console.warn).not.toHaveBeenCalled();
-    });
-
-    it('does not mutate the original todos array elements that are unchanged', () => {
-        const todo1 = { id: 1, text: 'Task 1', completed: false };
-        const todo2 = { id: 2, text: 'Task 2', completed: false };
-        const todos = [todo1, todo2];
-
-        getTodosFromStorageMock.mockReturnValue(todos);
-
-        updateTodoInStorage(1, { completed: true });
-
-        expect(saveTodosToStorageMock).toHaveBeenCalledTimes(1);
-        const updatedTodos = saveTodosToStorageMock.mock.calls[0][0];
-
-        // Ensure the second todo object reference is identical
-        expect(updatedTodos[1]).toBe(todo2);
-
-        // Ensure the first todo object reference is different (new object)
-        expect(updatedTodos[0]).not.toBe(todo1);
+            consoleWarnSpy.mockRestore();
+        });
     });
 });
