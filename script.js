@@ -980,12 +980,7 @@
         }
 
         // --- Recurrence UI Management ---
-        function buildRecurrenceFormFields(panelId, recurrenceData = null) {
-            const panel = document.getElementById(panelId);
-            if (!panel) return;
-
-            panel.innerHTML = '';
-
+        function createTypeSelectGroup(panelId) {
             const typeDiv = document.createElement('div');
             typeDiv.className = 'flex items-center mb-2';
 
@@ -1014,8 +1009,11 @@
 
             typeDiv.appendChild(typeLabel);
             typeDiv.appendChild(typeSelect);
-            panel.appendChild(typeDiv);
 
+            return { typeDiv, typeSelect };
+        }
+
+        function createDaysOfWeekGroup(panelId) {
             const daysOfWeekDiv = document.createElement('div');
             daysOfWeekDiv.id = `${panelId}_daysOfWeek`;
             daysOfWeekDiv.className = 'recurrence-days-of-week hidden';
@@ -1037,8 +1035,11 @@
                 label.appendChild(document.createTextNode(` ${day}`));
                 daysOfWeekDiv.appendChild(label);
             });
-            panel.appendChild(daysOfWeekDiv);
 
+            return daysOfWeekDiv;
+        }
+
+        function createClearButtonGroup(panelId) {
             const clearDiv = document.createElement('div');
             clearDiv.className = 'mt-3 flex justify-end';
             
@@ -1049,6 +1050,23 @@
             clearBtn.textContent = 'Clear Recurrence';
 
             clearDiv.appendChild(clearBtn);
+
+            return { clearDiv, clearBtn };
+        }
+
+        function buildRecurrenceFormFields(panelId, recurrenceData = null) {
+            const panel = document.getElementById(panelId);
+            if (!panel) return;
+
+            panel.innerHTML = '';
+
+            const { typeDiv, typeSelect } = createTypeSelectGroup(panelId);
+            panel.appendChild(typeDiv);
+
+            const daysOfWeekDiv = createDaysOfWeekGroup(panelId);
+            panel.appendChild(daysOfWeekDiv);
+
+            const { clearDiv, clearBtn } = createClearButtonGroup(panelId);
             panel.appendChild(clearDiv);
 
             typeSelect.onchange = () => {
