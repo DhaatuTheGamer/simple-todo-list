@@ -1178,14 +1178,9 @@
             return null;
         }
 
-// --- Exports for testing ---
+// Export for testing
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-        normalizeTodos,
-        buildHierarchicalTaskArray,
-        sortTasksLogic,
-        getRecurrenceSummary,
-        _setCurrentSortOrder: (order) => { currentSortOrder = order; },
-        _setTodos: (todos) => { memoizedTodos = todos; }
+        normalizeTodos
     };
 }
