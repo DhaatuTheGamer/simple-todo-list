@@ -270,22 +270,13 @@
         }
 
         // --- Edit Mode ---
-        function enterEditMode(li, textSpan, todoId) {
-            currentlyEditing = todoId; li.classList.add('editing'); li.draggable = false; li.style.cursor = 'default'; 
-            
-            const taskDataForEdit = getTodosFromStorage().find(t => t.id === todoId);
-            
-            const originalTextSpan = li.querySelector('.todo-text'); 
-            const actionButtons = li.querySelector('.flex-shrink-0'); 
-            if(originalTextSpan) originalTextSpan.classList.add('hidden');
-            if(actionButtons) actionButtons.classList.add('hidden');
-
+        function createEditControls(todoId, originalTextContent, taskDataForEdit) {
             const editWrapper = document.createElement('div');
             editWrapper.classList.add('edit-controls-wrapper'); 
 
             const textEditInput = document.createElement('input');
             textEditInput.type = 'text';
-            textEditInput.value = originalTextSpan.textContent;
+            textEditInput.value = originalTextContent;
             textEditInput.classList.add('edit-input'); 
 
             const editDueDateInput = document.createElement('input');
@@ -322,10 +313,16 @@
             editRecurrencePanel.classList.add('edit-recurrence-panel', 'hidden', 'w-full'); 
             editWrapper.appendChild(editRecurrencePanel); 
 
-            const checkbox = li.querySelector('.checkbox-icon'); 
-            checkbox.after(editWrapper);
+            return {
+                editWrapper,
+                textEditInput,
+                editDueDateInput,
+                editPriorityInput
+            };
+        }
 
-            textEditInput.focus(); textEditInput.select(); 
+        function setupEditModeEventListeners(li, todoId, controls) {
+            const { editWrapper, textEditInput, editDueDateInput, editPriorityInput } = controls;
             
             const saveOnBlurOrEnter = (event) => {
                 const targetIsInsideEditWrapper = editWrapper.contains(event.relatedTarget);
@@ -346,6 +343,10 @@
                     saveOnBlurOrEnter(event); 
                 }
             };
+
+            // Expose for external access like removing listener
+            controls.outsideClickListener = outsideClickListener;
+
             setTimeout(() => {
                 document.addEventListener('click', outsideClickListener, true); 
             }, 0);
@@ -362,6 +363,35 @@
             editPriorityInput.addEventListener('keydown', (e) => { if (e.key === 'Escape') saveEdit(li, textEditInput, todoId, true); });
         }
 
+        function enterEditMode(li, textSpan, todoId) {
+            currentlyEditing = todoId;
+            li.classList.add('editing');
+            li.draggable = false;
+            li.style.cursor = 'default';
+
+            const taskDataForEdit = getTodosFromStorage().find(t => t.id === todoId);
+
+            const originalTextSpan = li.querySelector('.todo-text');
+            const actionButtons = li.querySelector('.flex-shrink-0');
+
+            if (originalTextSpan) originalTextSpan.classList.add('hidden');
+            if (actionButtons) actionButtons.classList.add('hidden');
+
+            const controls = createEditControls(todoId, originalTextSpan ? originalTextSpan.textContent : '', taskDataForEdit);
+            const { editWrapper, textEditInput } = controls;
+
+            const checkbox = li.querySelector('.checkbox-icon');
+            if (checkbox) checkbox.after(editWrapper);
+
+            textEditInput.focus();
+            textEditInput.select();
+
+            setupEditModeEventListeners(li, todoId, controls);
+
+            // To ensure we can access it on saveEdit/exitEditMode
+            li._outsideClickListener = controls.outsideClickListener;
+        }
+
         function exitEditMode(li, editWrapper, textSpanToUnhide, actionButtonsToUnhide) {
             if (editWrapper) editWrapper.remove();
             if (textSpanToUnhide) textSpanToUnhide.classList.remove('hidden');
@@ -372,7 +402,11 @@
             li.draggable = currentSortOrder === 'default' && !isCompleted && (parseInt(li.dataset.level) || 0) === 0;
             li.style.cursor = (li.draggable) ? 'grab' : 'default';
             currentlyEditing = null;
-            document.removeEventListener('click', outsideClickListener, true);
+            if (li._outsideClickListener) {
+                document.removeEventListener('click', li._outsideClickListener, true);
+                delete li._outsideClickListener;
+                delete li.dataset.outsideClickListener;
+            }
         }
 
         function applyTaskVisualUpdates(li, textSpanToUnhide, updatedProperties) {
@@ -901,9 +935,9 @@
                 case 'priorityAsc': 
                     return (a.priority || 0) - (b.priority || 0);
                 case 'nameAZ':
-                    return a.text.toLowerCase().localeCompare(b.text.toLowerCase());
+                    return a._lowerText.localeCompare(b._lowerText);
                 case 'nameZA':
-                    return b.text.toLowerCase().localeCompare(a.text.toLowerCase());
+                    return b._lowerText.localeCompare(a._lowerText);
                 default: return 0; 
             }
         }
@@ -911,17 +945,21 @@
 
         // --- Local Storage Functions ---
         function normalizeTodos(todos) {
-            return (Array.isArray(todos) ? todos : []).map(todo => ({
-                text: todo.text ?? 'Untitled Task',
-                completed: todo.completed ?? false,
-                id: todo.id ?? Date.now(),
-                starred: todo.starred ?? false,
-                dueDate: todo.dueDate ?? null,
-                priority: todo.priority ?? 2,
-                parentId: todo.parentId ?? null,
-                level: todo.level ?? 0,
-                recurrence: todo.recurrence ?? null
-            })).filter(todo => todo.id && typeof todo.text === 'string');
+            return (Array.isArray(todos) ? todos : []).map(todo => {
+                const text = todo.text ?? 'Untitled Task';
+                return {
+                    text: text,
+                    _lowerText: typeof text === 'string' ? text.toLowerCase() : '',
+                    completed: todo.completed ?? false,
+                    id: todo.id ?? Date.now(),
+                    starred: todo.starred ?? false,
+                    dueDate: todo.dueDate ?? null,
+                    priority: todo.priority ?? 2,
+                    parentId: todo.parentId ?? null,
+                    level: todo.level ?? 0,
+                    recurrence: todo.recurrence ?? null
+                };
+            }).filter(todo => todo.id && typeof todo.text === 'string');
         }
 
         function getTodosFromStorage() {
@@ -980,12 +1018,7 @@
         }
 
         // --- Recurrence UI Management ---
-        function buildRecurrenceFormFields(panelId, recurrenceData = null) {
-            const panel = document.getElementById(panelId);
-            if (!panel) return;
-
-            panel.innerHTML = '';
-
+        function createTypeSelectGroup(panelId) {
             const typeDiv = document.createElement('div');
             typeDiv.className = 'flex items-center mb-2';
 
@@ -1014,8 +1047,11 @@
 
             typeDiv.appendChild(typeLabel);
             typeDiv.appendChild(typeSelect);
-            panel.appendChild(typeDiv);
 
+            return { typeDiv, typeSelect };
+        }
+
+        function createDaysOfWeekGroup(panelId) {
             const daysOfWeekDiv = document.createElement('div');
             daysOfWeekDiv.id = `${panelId}_daysOfWeek`;
             daysOfWeekDiv.className = 'recurrence-days-of-week hidden';
@@ -1037,8 +1073,11 @@
                 label.appendChild(document.createTextNode(` ${day}`));
                 daysOfWeekDiv.appendChild(label);
             });
-            panel.appendChild(daysOfWeekDiv);
 
+            return daysOfWeekDiv;
+        }
+
+        function createClearButtonGroup(panelId) {
             const clearDiv = document.createElement('div');
             clearDiv.className = 'mt-3 flex justify-end';
             
@@ -1049,6 +1088,23 @@
             clearBtn.textContent = 'Clear Recurrence';
 
             clearDiv.appendChild(clearBtn);
+
+            return { clearDiv, clearBtn };
+        }
+
+        function buildRecurrenceFormFields(panelId, recurrenceData = null) {
+            const panel = document.getElementById(panelId);
+            if (!panel) return;
+
+            panel.innerHTML = '';
+
+            const { typeDiv, typeSelect } = createTypeSelectGroup(panelId);
+            panel.appendChild(typeDiv);
+
+            const daysOfWeekDiv = createDaysOfWeekGroup(panelId);
+            panel.appendChild(daysOfWeekDiv);
+
+            const { clearDiv, clearBtn } = createClearButtonGroup(panelId);
             panel.appendChild(clearDiv);
 
             typeSelect.onchange = () => {
