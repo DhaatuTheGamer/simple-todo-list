@@ -357,17 +357,7 @@
         }
 
         // --- Edit Mode ---
-        async function enterEditMode(li, textSpan, todoId) {
-            currentlyEditing = todoId; li.classList.add('editing'); li.draggable = false; li.style.cursor = 'default'; 
-            
-            const todos = await getTodosFromStorage();
-            const taskDataForEdit = todos.find(t => t.id === todoId);
-            
-            const originalTextSpan = li.querySelector('.todo-text'); 
-            const actionButtons = li.querySelector('.flex-shrink-0'); 
-            if(originalTextSpan) originalTextSpan.classList.add('hidden');
-            if(actionButtons) actionButtons.classList.add('hidden');
-
+        function createEditControls(todoId, originalTextContent, taskDataForEdit) {
             const editWrapper = document.createElement('div');
             editWrapper.classList.add('edit-controls-wrapper'); 
 
@@ -460,13 +450,14 @@
             editPriorityInput.addEventListener('keydown', async (e) => { if (e.key === 'Escape') await saveEdit(li, textEditInput, todoId, true); });
         }
 
-        function enterEditMode(li, textSpan, todoId) {
+        async function enterEditMode(li, textSpan, todoId) {
             currentlyEditing = todoId;
             li.classList.add('editing');
             li.draggable = false;
             li.style.cursor = 'default';
 
-            const taskDataForEdit = getTodosFromStorage().find(t => t.id === todoId);
+            const todos = await getTodosFromStorage();
+            const taskDataForEdit = todos.find(t => t.id === todoId);
 
             const originalTextSpan = li.querySelector('.todo-text');
             const actionButtons = li.querySelector('.flex-shrink-0');
@@ -1303,6 +1294,11 @@
 // Export for testing
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-        normalizeTodos
+        normalizeTodos,
+        buildHierarchicalTaskArray,
+        sortTasksLogic,
+        getRecurrenceSummary,
+        _setCurrentSortOrder: (order) => { currentSortOrder = order; },
+        _setTodos: (todos) => { memoizedTodos = todos; }
     };
 }
