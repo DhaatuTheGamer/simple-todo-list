@@ -31,6 +31,7 @@ describe('normalizeTodos', () => {
         expect(output.length).toBe(1);
         expect(output[0]).toEqual({
             text: 'My Task',
+            _lowerText: 'my task',
             completed: false,
             id: 123,
             starred: false,
@@ -94,6 +95,7 @@ describe('normalizeTodos', () => {
         expect(output.length).toBe(1);
         expect(output[0]).toEqual({
             text: 'Existing Task',
+            _lowerText: 'existing task',
             completed: true,
             id: 456,
             starred: true,
