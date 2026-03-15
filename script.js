@@ -1312,7 +1312,7 @@ if (typeof module !== 'undefined' && module.exports) {
         buildHierarchicalTaskArray,
         sortTasksLogic,
         getRecurrenceSummary,
-        _setCurrentSortOrder: (val) => currentSortOrder = val,
-        _setTodos: (val) => memoizedTodos = val
+        _setCurrentSortOrder: (order) => { currentSortOrder = order; },
+        _setTodos: (todos) => { memoizedTodos = todos; }
     };
 }
