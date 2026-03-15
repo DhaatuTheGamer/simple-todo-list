@@ -996,19 +996,33 @@
 
 
         // --- Task Hierarchy Building ---
-        function buildHierarchicalTaskArray(allTasks, parentId = null, level = 0) {
+        function buildHierarchicalTaskArray(allTasks, parentId = null, level = 0, tasksByParent = null) {
+            if (!tasksByParent) {
+                tasksByParent = new Map();
+                for (const task of allTasks) {
+                    const pId = task.parentId || null;
+                    if (!tasksByParent.has(pId)) {
+                        tasksByParent.set(pId, []);
+                    }
+                    tasksByParent.get(pId).push(task);
+                }
+            }
+
             let result = [];
-            const children = allTasks.filter(task => task.parentId === parentId);
+            const children = tasksByParent.get(parentId) || [];
             
             if (currentSortOrder !== 'default') {
                  children.sort(sortTasksLogic); 
             }
 
-            children.forEach(task => {
+            for (const task of children) {
                 task.level = level; 
                 result.push(task);
-                result = result.concat(buildHierarchicalTaskArray(allTasks, task.id, level + 1));
-            });
+                const descendants = buildHierarchicalTaskArray(allTasks, task.id, level + 1, tasksByParent);
+                if (descendants.length > 0) {
+                    result.push(...descendants);
+                }
+            }
             return result;
         }
         
