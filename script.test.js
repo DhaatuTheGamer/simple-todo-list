@@ -122,10 +122,10 @@ describe('script.js logic functions', () => {
     });
 
     describe('sortTasksLogic', () => {
-        const taskA = { id: 1, text: 'Apple', priority: 1, dueDate: '2023-10-02' };
-        const taskB = { id: 2, text: 'Banana', priority: 3, dueDate: '2023-10-01' };
-        const taskC = { id: 3, text: 'Cherry', priority: 2, dueDate: null };
-        const taskD = { id: 4, text: 'Date', priority: null, dueDate: '2023-10-03' };
+        const taskA = { id: 1, text: 'Apple', _lowerText: 'apple', priority: 1, dueDate: '2023-10-02' };
+        const taskB = { id: 2, text: 'Banana', _lowerText: 'banana', priority: 3, dueDate: '2023-10-01' };
+        const taskC = { id: 3, text: 'Cherry', _lowerText: 'cherry', priority: 2, dueDate: null };
+        const taskD = { id: 4, text: 'Date', _lowerText: 'date', priority: null, dueDate: '2023-10-03' };
 
         it('should sort by name A-Z', () => {
             _setCurrentSortOrder('nameAZ');

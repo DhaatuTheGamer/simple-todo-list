@@ -357,17 +357,7 @@
         }
 
         // --- Edit Mode ---
-        async function enterEditMode(li, textSpan, todoId) {
-            currentlyEditing = todoId; li.classList.add('editing'); li.draggable = false; li.style.cursor = 'default'; 
-            
-            const todos = await getTodosFromStorage();
-            const taskDataForEdit = todos.find(t => t.id === todoId);
-            
-            const originalTextSpan = li.querySelector('.todo-text'); 
-            const actionButtons = li.querySelector('.flex-shrink-0'); 
-            if(originalTextSpan) originalTextSpan.classList.add('hidden');
-            if(actionButtons) actionButtons.classList.add('hidden');
-
+        function createEditControls(todoId, originalTextContent, taskDataForEdit) {
             const editWrapper = document.createElement('div');
             editWrapper.classList.add('edit-controls-wrapper'); 
 
@@ -460,13 +450,14 @@
             editPriorityInput.addEventListener('keydown', async (e) => { if (e.key === 'Escape') await saveEdit(li, textEditInput, todoId, true); });
         }
 
-        function enterEditMode(li, textSpan, todoId) {
+        async function enterEditMode(li, textSpan, todoId) {
             currentlyEditing = todoId;
             li.classList.add('editing');
             li.draggable = false;
             li.style.cursor = 'default';
 
-            const taskDataForEdit = getTodosFromStorage().find(t => t.id === todoId);
+            const todos = await getTodosFromStorage();
+            const taskDataForEdit = todos.find(t => t.id === todoId);
 
             const originalTextSpan = li.querySelector('.todo-text');
             const actionButtons = li.querySelector('.flex-shrink-0');
@@ -1005,19 +996,33 @@
 
 
         // --- Task Hierarchy Building ---
-        function buildHierarchicalTaskArray(allTasks, parentId = null, level = 0) {
+        function buildHierarchicalTaskArray(allTasks, parentId = null, level = 0, tasksByParent = null) {
+            if (!tasksByParent) {
+                tasksByParent = new Map();
+                for (const task of allTasks) {
+                    const pId = task.parentId || null;
+                    if (!tasksByParent.has(pId)) {
+                        tasksByParent.set(pId, []);
+                    }
+                    tasksByParent.get(pId).push(task);
+                }
+            }
+
             let result = [];
-            const children = allTasks.filter(task => task.parentId === parentId);
+            const children = tasksByParent.get(parentId) || [];
             
             if (currentSortOrder !== 'default') {
                  children.sort(sortTasksLogic); 
             }
 
-            children.forEach(task => {
+            for (const task of children) {
                 task.level = level; 
                 result.push(task);
-                result = result.concat(buildHierarchicalTaskArray(allTasks, task.id, level + 1));
-            });
+                const descendants = buildHierarchicalTaskArray(allTasks, task.id, level + 1, tasksByParent);
+                if (descendants.length > 0) {
+                    result.push(...descendants);
+                }
+            }
             return result;
         }
         
@@ -1303,6 +1308,11 @@
 // Export for testing
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
-        normalizeTodos
+        normalizeTodos,
+        buildHierarchicalTaskArray,
+        sortTasksLogic,
+        getRecurrenceSummary,
+        _setCurrentSortOrder: (val) => currentSortOrder = val,
+        _setTodos: (val) => memoizedTodos = val
     };
 }
